@@ -599,15 +599,15 @@ const QuizScreen = ({
           <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan{quizMode === 'check-one' ? ` • ${lockedProblems.size} disemak` : ''}</p>
         </div>
         {quizMode === 'check-all' && (
-          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md">Semak ✓</button>
+          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md">Semak</button>
         )}
         {quizMode === 'check-one' && lockedProblems.size === problems.length && (
-          <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Lihat Keputusan →</button>
+          <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Lihat Keputusan</button>
         )}
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-40 no-scrollbar">
-        <div className="w-full max-w-full mx-auto flex flex-col items-center">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+        <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
             {problems.map((prob, idx) => {
                 const isLocked = lockedProblems.has(prob.id);
                 const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
@@ -615,10 +615,10 @@ const QuizScreen = ({
                 const hasNext = idx < problems.length - 1;
 
                 return (
-                <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center mb-4">
-                    {/* Problem Card Wrapper with Green Border */}
+                <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
+                    {/* Problem Card Wrapper with Green Border - shown for both modes when complete */}
                     <div className={`transition-all duration-300 ${
-                        quizMode === 'check-one' && isComplete && !isLocked
+                        isComplete && !isLocked
                           ? 'ring-4 ring-green-400 rounded-3xl'
                           : ''
                     }`}>
@@ -638,34 +638,32 @@ const QuizScreen = ({
 
                     {/* Check/Next Buttons for check-one mode */}
                     {quizMode === 'check-one' && (
-                        <div className="mt-4 flex gap-3">
+                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
                             {!isLocked && isComplete && (
                                 <button
                                     onClick={() => handleCheckOne(prob.id)}
-                                    className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 animate-bounce"
+                                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
                                 >
-                                    <span>Semak Jawapan</span>
-                                    <span className="text-xl">✓</span>
+                                    Semak Jawapan
                                 </button>
                             )}
 
                             {isLocked && hasNext && (
                                 <button
                                     onClick={() => handleMoveToNext(prob.id)}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center gap-2"
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
                                 >
-                                    <span>Seterusnya</span>
-                                    <span className="text-xl">→</span>
+                                    Seterusnya
                                 </button>
                             )}
 
                             {isLocked && (
-                                <div className={`px-6 py-3 rounded-full font-bold ${
+                                <div className={`px-5 py-2.5 rounded-full font-bold ${
                                     validation?.isCorrect
                                         ? 'bg-green-100 text-green-800 border-2 border-green-400'
                                         : 'bg-red-100 text-red-800 border-2 border-red-400'
                                 }`}>
-                                    {validation?.isCorrect ? '✓ Betul!' : '✗ Salah'}
+                                    {validation?.isCorrect ? 'Betul' : 'Salah'}
                                 </div>
                             )}
                         </div>
