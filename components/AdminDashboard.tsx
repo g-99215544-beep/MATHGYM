@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loadAllScores, ScoreRecord } from '../services/firebase';
+import StudentDetailModal from './StudentDetailModal';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -10,6 +11,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState<string>('');
   const [filterOperation, setFilterOperation] = useState<string>('');
+  const [selectedStudent, setSelectedStudent] = useState<{ name: string; class: string } | null>(null);
 
   useEffect(() => {
     const fetchScores = async () => {
@@ -160,7 +162,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     <tbody className="divide-y divide-slate-100">
                       {scoresByClass[kelas].map((score, idx) => (
                         <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium text-slate-900">{score.studentName}</td>
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <button
+                              onClick={() => setSelectedStudent({ name: score.studentName, class: score.kelas })}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-semibold transition-colors"
+                            >
+                              {score.studentName}
+                            </button>
+                          </td>
                           <td className="px-4 py-3 text-sm text-slate-600">{score.tahun}</td>
                           <td className="px-4 py-3 text-sm text-slate-600">{score.operation}</td>
                           <td className="px-4 py-3 text-sm text-center text-slate-600">{score.totalQuestions}</td>
@@ -186,6 +195,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </div>
         )}
       </div>
+
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <StudentDetailModal
+          studentName={selectedStudent.name}
+          studentClass={selectedStudent.class}
+          scores={scores.filter(s => s.studentName === selectedStudent.name && s.kelas === selectedStudent.class)}
+          onClose={() => setSelectedStudent(null)}
+        />
+      )}
     </div>
   );
 };
