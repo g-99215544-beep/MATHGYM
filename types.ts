@@ -43,3 +43,16 @@ export type ActiveCell = {
   columnIndex: number;
   type: 'answer' | 'carry' | 'borrow' | 'remainder';
 };
+
+export interface Assignment {
+  id: string;
+  title: string;
+  kelas: string;
+  assignedStudentIds: string[]; // List of student IDs who need to complete this
+  difficulty: DifficultyLevel;
+  operation: OperationType;
+  questionCount: number;
+  includeBorrowing?: boolean;
+  createdAt: number;
+  completedBy: string[]; // List of student IDs who completed this
+}

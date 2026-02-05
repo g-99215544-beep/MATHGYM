@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get, push, set, Database } from "firebase/database";
+import { getDatabase, ref, get, push, set, Database, remove, update } from "firebase/database";
+import { Assignment } from '../types';
 
 // Firebase config for student data (kehadiran-murid)
 const studentDbConfig = {
@@ -146,6 +147,109 @@ export const loadAllScores = async (): Promise<ScoreRecord[]> => {
 // Admin authentication
 export const authenticateAdmin = (password: string): boolean => {
   return password === "admin123";
+};
+
+// ===== ASSIGNMENT FUNCTIONS =====
+
+// Create a new assignment
+export const createAssignment = async (assignment: Omit<Assignment, 'id'>): Promise<string | null> => {
+  try {
+    const assignmentsRef = ref(scoreDb, 'assignments');
+    const newAssignmentRef = push(assignmentsRef);
+    const assignmentId = newAssignmentRef.key;
+
+    if (!assignmentId) return null;
+
+    await set(newAssignmentRef, {
+      ...assignment,
+      id: assignmentId
+    });
+
+    return assignmentId;
+  } catch (error) {
+    console.error("Error creating assignment:", error);
+    return null;
+  }
+};
+
+// Load all assignments
+export const loadAllAssignments = async (): Promise<Assignment[]> => {
+  try {
+    const assignmentsRef = ref(scoreDb, 'assignments');
+    const snapshot = await get(assignmentsRef);
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const assignments: Assignment[] = [];
+
+      Object.keys(data).forEach(key => {
+        assignments.push(data[key]);
+      });
+
+      // Sort by creation date descending
+      return assignments.sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error loading assignments:", error);
+    return [];
+  }
+};
+
+// Get pending assignments for a student
+export const getPendingAssignments = async (studentId: string, kelas: string): Promise<Assignment[]> => {
+  try {
+    const assignments = await loadAllAssignments();
+
+    // Filter assignments for this student's class that they haven't completed yet
+    return assignments.filter(assignment =>
+      assignment.kelas === kelas &&
+      assignment.assignedStudentIds.includes(studentId) &&
+      !assignment.completedBy.includes(studentId)
+    );
+  } catch (error) {
+    console.error("Error getting pending assignments:", error);
+    return [];
+  }
+};
+
+// Mark assignment as completed by a student
+export const completeAssignment = async (assignmentId: string, studentId: string): Promise<boolean> => {
+  try {
+    const assignmentRef = ref(scoreDb, `assignments/${assignmentId}`);
+    const snapshot = await get(assignmentRef);
+
+    if (snapshot.exists()) {
+      const assignment = snapshot.val();
+      const completedBy = assignment.completedBy || [];
+
+      // Add student to completedBy array if not already there
+      if (!completedBy.includes(studentId)) {
+        completedBy.push(studentId);
+        await update(assignmentRef, { completedBy });
+      }
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error completing assignment:", error);
+    return false;
+  }
+};
+
+// Delete an assignment
+export const deleteAssignment = async (assignmentId: string): Promise<boolean> => {
+  try {
+    const assignmentRef = ref(scoreDb, `assignments/${assignmentId}`);
+    await remove(assignmentRef);
+    return true;
+  } catch (error) {
+    console.error("Error deleting assignment:", error);
+    return false;
+  }
 };
 
 export { studentDb, scoreDb };
