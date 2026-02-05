@@ -1,4 +1,5 @@
 export type YearLevel = 1 | 2 | 3 | 4 | 5 | 6;
+export type DifficultyLevel = 'easy' | 'medium' | 'pro';
 export type OperationType = 'add' | 'subtract' | 'multiply' | 'divide';
 export type QuizMode = 'check-one' | 'check-all';
 

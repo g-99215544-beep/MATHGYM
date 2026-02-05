@@ -1,19 +1,29 @@
-import { MathProblem, MathColumn, YearLevel, OperationType, ValidationResult } from '../types';
+import { MathProblem, MathColumn, YearLevel, DifficultyLevel, OperationType, ValidationResult } from '../types';
 
+// Legacy function for backward compatibility
 export const generateProblem = (year: YearLevel, index: number, operation: OperationType): MathProblem => {
+  // Map year to difficulty for backward compatibility
+  let difficulty: DifficultyLevel = 'easy';
+  if (year >= 3 && year <= 4) difficulty = 'medium';
+  if (year >= 5) difficulty = 'pro';
+  return generateProblemByDifficulty(difficulty, index, operation);
+};
+
+// New function using difficulty levels
+export const generateProblemByDifficulty = (difficulty: DifficultyLevel, index: number, operation: OperationType): MathProblem => {
   let min = 1;
   let max = 10;
   let num1 = 0;
   let num2 = 0;
 
-  // Adjust difficulty based on Year
-  switch (year) {
-    case 1: max = 20; break;
-    case 2: max = 99; break;
-    case 3: min = 10; max = 999; break;
-    case 4: min = 100; max = 9999; break;
-    case 5: min = 1000; max = 50000; break;
-    case 6: min = 10000; max = 100000; break;
+  // Adjust difficulty based on level
+  // Easy: 2 digits max (10-99)
+  // Medium: 3 digits (100-999)
+  // Pro: 4 digits (1000-9999)
+  switch (difficulty) {
+    case 'easy': min = 10; max = 99; break;
+    case 'medium': min = 100; max = 999; break;
+    case 'pro': min = 1000; max = 9999; break;
   }
 
   // Adjust specific numbers based on operation
@@ -26,21 +36,12 @@ export const generateProblem = (year: YearLevel, index: number, operation: Opera
      num2 = Math.floor(Math.random() * (num1 - 1)) + 1;
   } else if (operation === 'multiply') {
      // Strict Single Digit Multiplier for this UI to work with standard Vertical Form
-     // Year 1-3: Easy numbers. Year 4-6: Harder multiplicand, but multiplier still 2-9
-     const maxMult = 9; 
+     const maxMult = 9;
      num1 = Math.floor(Math.random() * (max - min)) + min;
      num2 = Math.floor(Math.random() * (maxMult - 2)) + 2;
   } else if (operation === 'divide') {
-     // Ensure clean division (no remainder) for basic practice, OR simple remainder for higher levels
-     // For this specific UI flow request (36/5 = 7 baki 1), we need clean examples or simple remainders.
-     // Let's stick to the generated logic but ensure it fits the model.
-     
-     // USER REQUEST: Bahagi hanya sehingga sifir 9 sahaja (Limit divisor to max 9).
-     // Generate divisor between 2 and 9.
-     // Range size = 9 - 2 + 1 = 8.
+     // Limit divisor to max 9
      num2 = Math.floor(Math.random() * 8) + 2;
-     
-     // To support the "remainder" flow, let's allow remainders.
      num1 = Math.floor(Math.random() * (max - min)) + min;
   }
 
