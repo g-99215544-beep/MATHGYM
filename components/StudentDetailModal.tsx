@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ScoreRecord } from '../services/firebase';
+import PerformanceLineChart from './PerformanceLineChart';
 
 interface StudentDetailModalProps {
   studentName: string;
@@ -63,6 +64,23 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     });
   };
 
+  const formatShortDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('ms-MY', {
+      day: '2-digit',
+      month: '2-digit'
+    });
+  };
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    return filteredScores.map(score => ({
+      date: formatShortDate(score.timestamp),
+      percentage: score.percentage,
+      timestamp: score.timestamp
+    }));
+  }, [filteredScores]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -124,6 +142,11 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               })}
             </div>
           </div>
+        </div>
+
+        {/* Performance Trend Chart */}
+        <div className="p-6 bg-slate-50">
+          <PerformanceLineChart data={chartData} operation={filterOperation || undefined} />
         </div>
 
         {/* Filter */}
