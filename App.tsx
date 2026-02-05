@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MathProblem, YearLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType } from './types';
+import { MathProblem, YearLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType, QuizMode } from './types';
 import { generateProblem, checkAnswer } from './services/mathUtils';
 import VerticalProblem from './components/VerticalProblem';
 import Keypad from './components/Keypad';
@@ -8,10 +8,11 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import { loadStudents, getClasses, getStudentsByClass, Student, saveScore } from './services/firebase';
 
-const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
+const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student) => void, onAdminClick: () => void }) => {
   const [year, setYear] = useState<YearLevel>(1);
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
+  const [quizMode, setQuizMode] = useState<QuizMode>('check-all');
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
@@ -128,7 +129,33 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, coun
               ))}
             </div>
           </div>
-          <button onClick={() => onStart(year, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <div>
+            <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Mod Semakan</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setQuizMode('check-all')}
+                className={`py-3 px-2 rounded-xl font-semibold text-sm transition-all shadow-lg ${
+                  quizMode === 'check-all' ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'
+                }`}
+              >
+                Semak Semua
+              </button>
+              <button
+                onClick={() => setQuizMode('check-one')}
+                className={`py-3 px-2 rounded-xl font-semibold text-sm transition-all shadow-lg ${
+                  quizMode === 'check-one' ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'
+                }`}
+              >
+                Satu-satu
+              </button>
+            </div>
+            <p className="text-white/60 text-xs mt-2">
+              {quizMode === 'check-all'
+                ? '* Semak semua soalan sekaligus'
+                : '* Semak dan kunci jawapan setiap soalan'}
+            </p>
+          </div>
+          <button onClick={() => onStart(year, count, op, quizMode, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
         </div>
       </div>
     </div>
@@ -139,12 +166,14 @@ const QuizScreen = ({
   year,
   count,
   op,
+  quizMode,
   student,
   onFinish
 }: {
   year: YearLevel,
   count: number,
   op: OperationType,
+  quizMode: QuizMode,
   student?: Student,
   onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void
 }) => {
@@ -152,7 +181,9 @@ const QuizScreen = ({
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswerState>>({});
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [warnCol, setWarnCol] = useState<{probId: string, col: number, type?: 'slash' | 'carry' | 'borrow'} | null>(null);
-  const [sifirOpen, setSifirOpen] = useState<Record<string, boolean>>({}); 
+  const [sifirOpen, setSifirOpen] = useState<Record<string, boolean>>({});
+  const [lockedProblems, setLockedProblems] = useState<Set<string>>(new Set()); // Problems that have been checked
+  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({}); // Results for checked problems
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const getDivisionStartColumn = useCallback((problem: MathProblem): number => {
@@ -270,6 +301,11 @@ const QuizScreen = ({
       const prob = problems.find(p => p.id === problemId);
       const userAns = userAnswers[problemId];
       if (!prob || !userAns) return;
+
+      // Prevent editing locked problems in check-one mode
+      if (quizMode === 'check-one' && lockedProblems.has(problemId)) {
+        return;
+      }
 
       // Check if there's a blinking field that must be filled first
       const blinkingCheck = checkBlinkingField(prob, colIndex, type, userAns);
@@ -457,6 +493,99 @@ const QuizScreen = ({
       setTimeout(() => setWarnCol(null), 1000);
   };
 
+  // Check if a problem is complete (all required fields filled)
+  const isProblemComplete = (problem: MathProblem, userAns: UserAnswerState): boolean => {
+    // Check all answer digits are filled
+    for (let i = 0; i < problem.columns.length; i++) {
+      if (!userAns.answerDigits[i]) return false;
+    }
+
+    // Check required carries/borrows/remainders based on operation
+    if (op === 'add' || op === 'multiply') {
+      for (let i = 0; i < problem.columns.length; i++) {
+        const col = problem.columns[i];
+        if (col.correctCarryOut > 0 && i + 1 < problem.columns.length) {
+          if (!userAns.carryDigits[i + 1]) return false;
+        }
+      }
+    } else if (op === 'subtract') {
+      for (let i = 0; i < problem.columns.length; i++) {
+        const col = problem.columns[i];
+        const d1 = col.digit1 || 0;
+        const d2 = col.digit2 || 0;
+        if (d1 < d2) {
+          const nextIdx = i + 1;
+          if (!userAns.slashedCols[nextIdx]) return false;
+          if (!userAns.carryDigits[nextIdx]) return false;
+          if (!userAns.borrowDigits[i]) return false;
+        }
+      }
+    } else if (op === 'divide') {
+      for (let i = 0; i < problem.columns.length; i++) {
+        if (!userAns.slashedCols[i]) return false;
+        const col = problem.columns[i];
+        if (col.correctCarryOut > 0) {
+          if (!userAns.remainderDigits[i]) return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
+  // Handle checking a single problem
+  const handleCheckOne = (problemId: string) => {
+    const prob = problems.find(p => p.id === problemId);
+    if (!prob) return;
+
+    const validation = checkAnswer(prob, userAnswers[problemId]);
+
+    // Lock this problem
+    setLockedProblems(prev => new Set(prev).add(problemId));
+
+    // Store validation result
+    setValidationResults(prev => ({ ...prev, [problemId]: validation }));
+
+    // Find next problem
+    const currentIdx = problems.findIndex(p => p.id === problemId);
+    if (currentIdx < problems.length - 1) {
+      const nextProb = problems[currentIdx + 1];
+      // Scroll to next problem
+      setTimeout(() => {
+        const nextElement = document.getElementById(`prob-${nextProb.id}`);
+        if (nextElement) {
+          nextElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // Set active cell to first cell of next problem
+        if (op === 'divide') {
+          const startCol = getDivisionStartColumn(nextProb);
+          setActiveCell({ problemId: nextProb.id, columnIndex: startCol, type: 'answer' });
+        } else {
+          setActiveCell({ problemId: nextProb.id, columnIndex: 0, type: 'answer' });
+        }
+      }, 300);
+    }
+  };
+
+  // Handle moving to next problem
+  const handleMoveToNext = (currentProblemId: string) => {
+    const currentIdx = problems.findIndex(p => p.id === currentProblemId);
+    if (currentIdx < problems.length - 1) {
+      const nextProb = problems[currentIdx + 1];
+      const nextElement = document.getElementById(`prob-${nextProb.id}`);
+      if (nextElement) {
+        nextElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // Set active cell to first cell of next problem
+      if (op === 'divide') {
+        const startCol = getDivisionStartColumn(nextProb);
+        setActiveCell({ problemId: nextProb.id, columnIndex: startCol, type: 'answer' });
+      } else {
+        setActiveCell({ problemId: nextProb.id, columnIndex: 0, type: 'answer' });
+      }
+    }
+  };
+
   const handleSubmit = () => {
     const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: checkAnswer(p, userAnswers[p.id]) }));
     onFinish(res, student);
@@ -467,28 +596,83 @@ const QuizScreen = ({
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
         <div>
           <h2 className={`font-bold text-lg text-slate-700`}>{op === 'divide' ? 'Latihan Bahagi' : 'Latihan Matematik'}</h2>
-          <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan</p>
+          <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan{quizMode === 'check-one' ? ` • ${lockedProblems.size} disemak` : ''}</p>
         </div>
-        <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md">Semak ✓</button>
+        {quizMode === 'check-all' && (
+          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md">Semak ✓</button>
+        )}
+        {quizMode === 'check-one' && lockedProblems.size === problems.length && (
+          <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Lihat Keputusan →</button>
+        )}
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-40 no-scrollbar">
         <div className="w-full max-w-full mx-auto flex flex-col items-center">
-            {problems.map((prob) => (
-            <div key={prob.id} id={`prob-${prob.id}`}>
-                <VerticalProblem
-                    problem={prob}
-                    userAnswers={userAnswers[prob.id]}
-                    activeCell={activeCell}
-                    onCellClick={(col, type) => handleCellClick(prob.id, col, type)}
-                    onToggleSlash={(col) => handleToggleSlash(prob.id, col)}
-                    isSubmitted={false}
-                    warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
-                    showSifir={sifirOpen[prob.id]}
-                    onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
-                />
-            </div>
-            ))}
+            {problems.map((prob, idx) => {
+                const isLocked = lockedProblems.has(prob.id);
+                const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
+                const validation = validationResults[prob.id];
+                const hasNext = idx < problems.length - 1;
+
+                return (
+                <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center mb-4">
+                    {/* Problem Card Wrapper with Green Border */}
+                    <div className={`transition-all duration-300 ${
+                        quizMode === 'check-one' && isComplete && !isLocked
+                          ? 'ring-4 ring-green-400 rounded-3xl'
+                          : ''
+                    }`}>
+                        <VerticalProblem
+                            problem={prob}
+                            userAnswers={userAnswers[prob.id]}
+                            activeCell={activeCell}
+                            onCellClick={(col, type) => handleCellClick(prob.id, col, type)}
+                            onToggleSlash={(col) => handleToggleSlash(prob.id, col)}
+                            isSubmitted={isLocked}
+                            validationResult={validation}
+                            warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
+                            showSifir={sifirOpen[prob.id]}
+                            onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
+                        />
+                    </div>
+
+                    {/* Check/Next Buttons for check-one mode */}
+                    {quizMode === 'check-one' && (
+                        <div className="mt-4 flex gap-3">
+                            {!isLocked && isComplete && (
+                                <button
+                                    onClick={() => handleCheckOne(prob.id)}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 animate-bounce"
+                                >
+                                    <span>Semak Jawapan</span>
+                                    <span className="text-xl">✓</span>
+                                </button>
+                            )}
+
+                            {isLocked && hasNext && (
+                                <button
+                                    onClick={() => handleMoveToNext(prob.id)}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center gap-2"
+                                >
+                                    <span>Seterusnya</span>
+                                    <span className="text-xl">→</span>
+                                </button>
+                            )}
+
+                            {isLocked && (
+                                <div className={`px-6 py-3 rounded-full font-bold ${
+                                    validation?.isCorrect
+                                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                                        : 'bg-red-100 text-red-800 border-2 border-red-400'
+                                }`}>
+                                    {validation?.isCorrect ? '✓ Betul!' : '✗ Salah'}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                );
+            })}
         </div>
       </div>
 
@@ -530,11 +714,11 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 
 const App = () => {
   const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
-  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, student?: Student }>({ year: 1, count: 10, op: 'add' });
+  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student }>({ year: 1, count: 10, op: 'add', quizMode: 'check-all' });
   const [results, setResults] = useState<any[]>([]);
 
-  const startQuiz = (year: YearLevel, count: number, op: OperationType, student?: Student) => {
-    setConfig({ year, count, op, student });
+  const startQuiz = (year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student) => {
+    setConfig({ year, count, op, quizMode, student });
     setScreen('quiz');
   };
 
@@ -586,7 +770,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} />}
+      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} quizMode={config.quizMode} student={config.student} onFinish={finishQuiz} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
