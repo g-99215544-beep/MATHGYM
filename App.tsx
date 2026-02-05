@@ -4,11 +4,30 @@ import { MathProblem, YearLevel, UserAnswerState, ActiveCell, ValidationResult, 
 import { generateProblem, checkAnswer } from './services/mathUtils';
 import VerticalProblem from './components/VerticalProblem';
 import Keypad from './components/Keypad';
+import AdminLogin from './components/AdminLogin';
+import AdminDashboard from './components/AdminDashboard';
+import { loadStudents, getClasses, getStudentsByClass, Student, saveScore } from './services/firebase';
 
-const HomeScreen = ({ onStart }: { onStart: (year: YearLevel, count: number, op: OperationType) => void }) => {
+const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
   const [year, setYear] = useState<YearLevel>(1);
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      const studentList = await loadStudents();
+      setStudents(studentList);
+      setLoading(false);
+    };
+    fetchStudents();
+  }, []);
+
+  const classes = getClasses(students);
+  const studentsInClass = selectedClass ? getStudentsByClass(students, selectedClass) : [];
 
   const themes = {
     add: 'from-sky-400 to-indigo-500',
@@ -26,6 +45,14 @@ const HomeScreen = ({ onStart }: { onStart: (year: YearLevel, count: number, op:
 
   return (
     <div className={`min-h-screen bg-gradient-to-b ${themes[op]} flex flex-col items-center justify-center p-6 text-white transition-colors duration-500`}>
+      {/* Admin Button */}
+      <button
+        onClick={onAdminClick}
+        className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold transition-all border border-white/30"
+      >
+        Admin 🔐
+      </button>
+
       <div className="bg-white/10 backdrop-blur-lg p-6 rounded-3xl w-full max-w-md shadow-xl border border-white/20">
         <h1 className="text-4xl font-bold text-center mb-1 drop-shadow-md">MathGym</h1>
         <p className="text-center text-white/80 mb-6 text-sm">Latihan Matematik Sekolah Rendah</p>
@@ -43,6 +70,48 @@ const HomeScreen = ({ onStart }: { onStart: (year: YearLevel, count: number, op:
             ))}
         </div>
         <div className="space-y-6">
+          {/* Student Selection */}
+          <div>
+            <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Pilih Murid (Opsional)</label>
+            {loading ? (
+              <div className="text-center text-white/70 text-sm py-2">Memuatkan senarai murid...</div>
+            ) : (
+              <div className="space-y-2">
+                <select
+                  value={selectedClass}
+                  onChange={(e) => {
+                    setSelectedClass(e.target.value);
+                    setSelectedStudent(undefined);
+                  }}
+                  className="w-full bg-white/20 text-white border border-white/30 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/50"
+                >
+                  <option value="" className="text-slate-800">-- Pilih Kelas --</option>
+                  {classes.map((cls) => (
+                    <option key={cls} value={cls} className="text-slate-800">{cls}</option>
+                  ))}
+                </select>
+                {selectedClass && (
+                  <select
+                    value={selectedStudent?.id || ''}
+                    onChange={(e) => {
+                      const student = studentsInClass.find(s => s.id === e.target.value);
+                      setSelectedStudent(student);
+                    }}
+                    className="w-full bg-white/20 text-white border border-white/30 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  >
+                    <option value="" className="text-slate-800">-- Pilih Nama --</option>
+                    {studentsInClass.map((student) => (
+                      <option key={student.id} value={student.id} className="text-slate-800">{student.nama}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            {!selectedStudent && (
+              <p className="text-white/60 text-xs mt-2">* Markah tidak akan direkod jika tidak pilih murid</p>
+            )}
+          </div>
+
           <div>
             <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Pilih Tahun</label>
             <div className="grid grid-cols-3 gap-3">
@@ -59,23 +128,25 @@ const HomeScreen = ({ onStart }: { onStart: (year: YearLevel, count: number, op:
               ))}
             </div>
           </div>
-          <button onClick={() => onStart(year, count, op)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <button onClick={() => onStart(year, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
         </div>
       </div>
     </div>
   );
 };
 
-const QuizScreen = ({ 
-  year, 
+const QuizScreen = ({
+  year,
   count,
-  op, 
-  onFinish 
-}: { 
-  year: YearLevel, 
-  count: number, 
+  op,
+  student,
+  onFinish
+}: {
+  year: YearLevel,
+  count: number,
   op: OperationType,
-  onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[]) => void 
+  student?: Student,
+  onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void
 }) => {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswerState>>({});
@@ -145,10 +216,68 @@ const QuizScreen = ({
       return { ready: true };
   };
 
+  // Check if there's a blinking field that must be filled first
+  const checkBlinkingField = (problem: MathProblem, colIndex: number, type: 'answer' | 'carry' | 'borrow' | 'remainder', userAns: UserAnswerState): { hasBlinking: boolean, redirect?: ActiveCell } => {
+      // Only check when user tries to fill answer field
+      if (type !== 'answer') return { hasBlinking: false };
+
+      if (op === 'add') {
+          // Check if previous column has unfilled carry
+          const prevColIndex = colIndex - 1;
+          if (prevColIndex >= 0) {
+              const prevCol = problem.columns[prevColIndex];
+              const prevAns = userAns.answerDigits[prevColIndex];
+              if (prevCol.correctCarryOut > 0 && prevAns && prevAns !== '') {
+                  if (!userAns.carryDigits[colIndex] || userAns.carryDigits[colIndex] === '') {
+                      return { hasBlinking: true, redirect: { problemId: problem.id, columnIndex: colIndex, type: 'carry' } };
+                  }
+              }
+          }
+      } else if (op === 'subtract') {
+          // Check if there's unfilled carry or borrow from slashed column
+          if (userAns.slashedCols[colIndex] && (!userAns.carryDigits[colIndex] || userAns.carryDigits[colIndex] === '')) {
+              return { hasBlinking: true, redirect: { problemId: problem.id, columnIndex: colIndex, type: 'carry' } };
+          }
+          const nextColIndex = colIndex + 1;
+          if (userAns.slashedCols[nextColIndex] && userAns.carryDigits[nextColIndex] && (!userAns.borrowDigits[colIndex] || userAns.borrowDigits[colIndex] === '')) {
+              return { hasBlinking: true, redirect: { problemId: problem.id, columnIndex: colIndex, type: 'borrow' } };
+          }
+      } else if (op === 'divide') {
+          // Check if there's unfilled remainder
+          if (userAns.slashedCols[colIndex] && problem.columns[colIndex].correctCarryOut > 0) {
+              if (!userAns.remainderDigits[colIndex] || userAns.remainderDigits[colIndex] === '') {
+                  return { hasBlinking: true, redirect: { problemId: problem.id, columnIndex: colIndex, type: 'remainder' } };
+              }
+          }
+      } else if (op === 'multiply') {
+          // Check if previous column has unfilled carry
+          const prevColIndex = colIndex - 1;
+          if (prevColIndex >= 0) {
+              const prevCol = problem.columns[prevColIndex];
+              const prevAns = userAns.answerDigits[prevColIndex];
+              if (prevCol.correctCarryOut > 0 && prevAns && prevAns !== '') {
+                  if (!userAns.carryDigits[colIndex] || userAns.carryDigits[colIndex] === '') {
+                      return { hasBlinking: true, redirect: { problemId: problem.id, columnIndex: colIndex, type: 'carry' } };
+                  }
+              }
+          }
+      }
+
+      return { hasBlinking: false };
+  };
+
   const handleCellClick = (problemId: string, colIndex: number, type: 'answer' | 'carry' | 'borrow' | 'remainder') => {
       const prob = problems.find(p => p.id === problemId);
       const userAns = userAnswers[problemId];
       if (!prob || !userAns) return;
+
+      // Check if there's a blinking field that must be filled first
+      const blinkingCheck = checkBlinkingField(prob, colIndex, type, userAns);
+      if (blinkingCheck.hasBlinking && blinkingCheck.redirect) {
+          setActiveCell(blinkingCheck.redirect);
+          triggerWarning(problemId, blinkingCheck.redirect.columnIndex);
+          return;
+      }
 
       if (op === 'divide' && type === 'answer') {
           const startCol = getDivisionStartColumn(prob);
@@ -330,7 +459,7 @@ const QuizScreen = ({
 
   const handleSubmit = () => {
     const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: checkAnswer(p, userAnswers[p.id]) }));
-    onFinish(res);
+    onFinish(res, student);
   };
 
   return (
@@ -400,19 +529,67 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 };
 
 const App = () => {
-  const [screen, setScreen] = useState<'home' | 'quiz' | 'result'>('home');
-  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType }>({ year: 1, count: 10, op: 'add' });
+  const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
+  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, student?: Student }>({ year: 1, count: 10, op: 'add' });
   const [results, setResults] = useState<any[]>([]);
 
-  const startQuiz = (year: YearLevel, count: number, op: OperationType) => { setConfig({ year, count, op }); setScreen('quiz'); };
-  const finishQuiz = (res: any[]) => { setResults(res); setScreen('result'); };
+  const startQuiz = (year: YearLevel, count: number, op: OperationType, student?: Student) => {
+    setConfig({ year, count, op, student });
+    setScreen('quiz');
+  };
+
+  const finishQuiz = async (res: any[], student?: Student) => {
+    setResults(res);
+
+    // Save score to Firebase if student is selected
+    if (student) {
+      const totalCorrect = res.filter((r: any) => r.validation.isCorrect).length;
+      const totalWrong = res.length - totalCorrect;
+      const percentage = Math.round((totalCorrect / res.length) * 100);
+
+      const opLabels = {
+        add: 'Tambah',
+        subtract: 'Tolak',
+        multiply: 'Darab',
+        divide: 'Bahagi'
+      };
+
+      const scoreRecord = {
+        studentId: student.id,
+        studentName: student.nama,
+        kelas: student.kelas,
+        tahun: config.year,
+        operation: opLabels[config.op],
+        totalQuestions: res.length,
+        correctAnswers: totalCorrect,
+        wrongAnswers: totalWrong,
+        percentage: percentage,
+        timestamp: Date.now(),
+        details: res.map((r: any) => ({
+          problemId: r.problem.id,
+          isCorrect: r.validation.isCorrect
+        }))
+      };
+
+      await saveScore(scoreRecord);
+    }
+
+    setScreen('result');
+  };
+
   const restart = () => { setScreen('home'); setResults([]); };
+  const goToAdminLogin = () => setScreen('adminLogin');
+  const onAdminLogin = () => setScreen('adminDashboard');
+  const onAdminLogout = () => setScreen('home');
+  const backToHome = () => setScreen('home');
 
   return (
     <>
-      {screen === 'home' && <HomeScreen onStart={startQuiz} />}
-      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} onFinish={finishQuiz} />}
+      {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
+      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
+      {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
+      {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
     </>
   );
 };
