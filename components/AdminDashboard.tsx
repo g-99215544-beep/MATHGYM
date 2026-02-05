@@ -4,9 +4,10 @@ import StudentDetailModal from './StudentDetailModal';
 
 interface AdminDashboardProps {
   onLogout: () => void;
+  onManageAssignments: () => void;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssignments }) => {
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState<string>('');
@@ -60,12 +61,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
             <p className="text-slate-300 text-sm">MathGym - Laporan Prestasi Murid</p>
           </div>
-          <button
-            onClick={onLogout}
-            className="bg-red-500 hover:bg-red-600 px-6 py-2 rounded-lg font-bold transition-all"
-          >
-            Logout
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onManageAssignments}
+              className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg font-bold transition-all"
+            >
+              Urus Assignment
+            </button>
+            <button
+              onClick={onLogout}
+              className="bg-red-500 hover:bg-red-600 px-6 py-2 rounded-lg font-bold transition-all"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 

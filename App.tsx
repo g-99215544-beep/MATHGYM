@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MathProblem, YearLevel, DifficultyLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType, QuizMode } from './types';
+import { MathProblem, YearLevel, DifficultyLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType, QuizMode, Assignment } from './types';
 import { generateProblemByDifficulty, checkAnswer } from './services/mathUtils';
 import VerticalProblem from './components/VerticalProblem';
 import Keypad from './components/Keypad';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
-import { loadStudents, getClasses, getStudentsByClass, Student, saveScore } from './services/firebase';
+import AdminAssignment from './components/AdminAssignment';
+import AssignmentSelectionModal from './components/AssignmentSelectionModal';
+import { loadStudents, getClasses, getStudentsByClass, Student, saveScore, getPendingAssignments, completeAssignment } from './services/firebase';
 
 // Sound effects utility
 const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
@@ -43,7 +45,11 @@ const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
   }
 };
 
-const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean) => void, onAdminClick: () => void }) => {
+const HomeScreen = ({ onStart, onAdminClick, onStartAssignment }: {
+  onStart: (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean) => void,
+  onAdminClick: () => void,
+  onStartAssignment: (assignment: Assignment, student: Student) => void
+}) => {
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('easy');
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
@@ -52,6 +58,8 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: Difficult
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -62,8 +70,32 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: Difficult
     fetchStudents();
   }, []);
 
+  // Check for pending assignments when student is selected
+  useEffect(() => {
+    const checkAssignments = async () => {
+      if (selectedStudent) {
+        const assignments = await getPendingAssignments(selectedStudent.id, selectedStudent.kelas);
+        setPendingAssignments(assignments);
+        if (assignments.length > 0) {
+          setShowAssignmentModal(true);
+        }
+      } else {
+        setPendingAssignments([]);
+        setShowAssignmentModal(false);
+      }
+    };
+    checkAssignments();
+  }, [selectedStudent]);
+
   const classes = getClasses(students);
   const studentsInClass = selectedClass ? getStudentsByClass(students, selectedClass) : [];
+
+  const handleSelectAssignment = (assignment: Assignment) => {
+    if (selectedStudent) {
+      setShowAssignmentModal(false);
+      onStartAssignment(assignment, selectedStudent);
+    }
+  };
 
   const themes = {
     add: 'from-sky-400 to-indigo-500',
@@ -197,9 +229,29 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: Difficult
               ))}
             </div>
           </div>
-          <button onClick={() => onStart(difficulty, count, op, selectedStudent, op === 'subtract' ? includeBorrowing : undefined)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <button
+            onClick={() => onStart(difficulty, count, op, selectedStudent, op === 'subtract' ? includeBorrowing : undefined)}
+            disabled={pendingAssignments.length > 0}
+            className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:bg-slate-300 disabled:cursor-not-allowed text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4"
+          >
+            Mula Latihan
+          </button>
+          {pendingAssignments.length > 0 && (
+            <p className="text-white/90 text-sm mt-3 text-center bg-amber-500/30 p-3 rounded-lg border border-white/30">
+              Anda mempunyai {pendingAssignments.length} tugasan yang perlu disiapkan terlebih dahulu.
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Assignment Selection Modal */}
+      {showAssignmentModal && selectedStudent && pendingAssignments.length > 0 && (
+        <AssignmentSelectionModal
+          assignments={pendingAssignments}
+          studentName={selectedStudent.nama}
+          onSelectAssignment={handleSelectAssignment}
+        />
+      )}
     </div>
   );
 };
@@ -211,7 +263,8 @@ const QuizScreen = ({
   student,
   includeBorrowing,
   onFinish,
-  onHome
+  onHome,
+  assignment
 }: {
   difficulty: DifficultyLevel,
   count: number,
@@ -219,7 +272,8 @@ const QuizScreen = ({
   student?: Student,
   includeBorrowing?: boolean,
   onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void,
-  onHome: () => void
+  onHome: () => void,
+  assignment?: Assignment | null
 }) => {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswerState>>({});
@@ -729,8 +783,17 @@ const QuizScreen = ({
     <div className="flex flex-col h-screen bg-slate-50">
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
         <div>
-          <h2 className={`font-bold text-lg text-slate-700`}>{op === 'divide' ? 'Latihan Bahagi' : 'Latihan Matematik'}</h2>
-          <p className="text-slate-500 text-xs">{difficultyLabels[difficulty]} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
+          {assignment ? (
+            <>
+              <h2 className={`font-bold text-lg text-slate-700`}>Tugasan: {assignment.title}</h2>
+              <p className="text-slate-500 text-xs">{difficultyLabels[difficulty]} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
+            </>
+          ) : (
+            <>
+              <h2 className={`font-bold text-lg text-slate-700`}>{op === 'divide' ? 'Latihan Bahagi' : 'Latihan Matematik'}</h2>
+              <p className="text-slate-500 text-xs">{difficultyLabels[difficulty]} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
+            </>
+          )}
         </div>
         {/* Show "Semak Semua" only when ALL problems are complete but not all checked yet */}
         {allProblemsComplete && !allProblemsChecked && (
@@ -975,17 +1038,36 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 };
 
 const App = () => {
-  const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
+  const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard' | 'adminAssignment'>('home');
   const [config, setConfig] = useState<{ difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean }>({ difficulty: 'easy', count: 10, op: 'add' });
   const [results, setResults] = useState<any[]>([]);
+  const [currentAssignment, setCurrentAssignment] = useState<Assignment | null>(null);
 
   const startQuiz = (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean) => {
     setConfig({ difficulty, count, op, student, includeBorrowing });
+    setCurrentAssignment(null);
+    setScreen('quiz');
+  };
+
+  const startAssignmentQuiz = (assignment: Assignment, student: Student) => {
+    setConfig({
+      difficulty: assignment.difficulty,
+      count: assignment.questionCount,
+      op: assignment.operation,
+      student,
+      includeBorrowing: assignment.includeBorrowing
+    });
+    setCurrentAssignment(assignment);
     setScreen('quiz');
   };
 
   const finishQuiz = async (res: any[], student?: Student) => {
     setResults(res);
+
+    // Mark assignment as completed if this was an assignment quiz
+    if (currentAssignment && student) {
+      await completeAssignment(currentAssignment.id, student.id);
+    }
 
     // Save score to Firebase if student is selected
     if (student) {
@@ -1029,19 +1111,22 @@ const App = () => {
     setScreen('result');
   };
 
-  const restart = () => { setScreen('home'); setResults([]); };
+  const restart = () => { setScreen('home'); setResults([]); setCurrentAssignment(null); };
   const goToAdminLogin = () => setScreen('adminLogin');
   const onAdminLogin = () => setScreen('adminDashboard');
   const onAdminLogout = () => setScreen('home');
   const backToHome = () => setScreen('home');
+  const goToAdminAssignment = () => setScreen('adminAssignment');
+  const backToAdminDashboard = () => setScreen('adminDashboard');
 
   return (
     <>
-      {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} includeBorrowing={config.includeBorrowing} onFinish={finishQuiz} onHome={restart} />}
+      {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} onStartAssignment={startAssignmentQuiz} />}
+      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} includeBorrowing={config.includeBorrowing} onFinish={finishQuiz} onHome={restart} assignment={currentAssignment} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
-      {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
+      {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} onManageAssignments={goToAdminAssignment} />}
+      {screen === 'adminAssignment' && <AdminAssignment onBack={backToAdminDashboard} />}
     </>
   );
 };
