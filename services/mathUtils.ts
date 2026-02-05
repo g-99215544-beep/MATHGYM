@@ -9,8 +9,48 @@ export const generateProblem = (year: YearLevel, index: number, operation: Opera
   return generateProblemByDifficulty(difficulty, index, operation);
 };
 
+// Helper function to check if subtraction requires borrowing
+const requiresBorrowing = (num1: number, num2: number): boolean => {
+  const str1 = num1.toString().split('').reverse();
+  const str2 = num2.toString().split('').reverse();
+
+  for (let i = 0; i < str2.length; i++) {
+    const d1 = parseInt(str1[i] || '0');
+    const d2 = parseInt(str2[i]);
+    if (d1 < d2) return true;
+  }
+  return false;
+};
+
+// Generate subtraction problem without borrowing
+const generateNoBorrowSubtraction = (min: number, max: number): { num1: number, num2: number } => {
+  // Strategy: Generate num1, then create num2 where each digit is <= corresponding digit of num1
+  const num1 = Math.floor(Math.random() * (max - min)) + min;
+  const digits1 = num1.toString().split('').map(Number);
+
+  // Generate num2 digit by digit, ensuring each digit <= corresponding digit of num1
+  const digits2: number[] = [];
+  for (let i = 0; i < digits1.length; i++) {
+    const maxDigit = digits1[i];
+    // Ensure first digit is at least 1 for multi-digit numbers
+    const minDigit = (i === 0 && digits1.length > 1) ? 1 : 0;
+    if (maxDigit >= minDigit) {
+      digits2.push(Math.floor(Math.random() * (maxDigit - minDigit + 1)) + minDigit);
+    } else {
+      digits2.push(0);
+    }
+  }
+
+  let num2 = parseInt(digits2.join('')) || 1;
+  // Ensure num2 is at least 1 and less than num1
+  if (num2 >= num1) num2 = Math.max(1, num1 - 1);
+  if (num2 === 0) num2 = 1;
+
+  return { num1, num2 };
+};
+
 // New function using difficulty levels
-export const generateProblemByDifficulty = (difficulty: DifficultyLevel, index: number, operation: OperationType): MathProblem => {
+export const generateProblemByDifficulty = (difficulty: DifficultyLevel, index: number, operation: OperationType, includeBorrowing?: boolean): MathProblem => {
   let min = 1;
   let max = 10;
   let num1 = 0;
@@ -31,9 +71,16 @@ export const generateProblemByDifficulty = (difficulty: DifficultyLevel, index: 
      num1 = Math.floor(Math.random() * (max - min)) + min;
      num2 = Math.floor(Math.random() * (max - min)) + min;
   } else if (operation === 'subtract') {
-     // Ensure Num1 > Num2
-     num1 = Math.floor(Math.random() * (max - min)) + min;
-     num2 = Math.floor(Math.random() * (num1 - 1)) + 1;
+     if (includeBorrowing === false) {
+       // Generate problem without borrowing
+       const result = generateNoBorrowSubtraction(min, max);
+       num1 = result.num1;
+       num2 = result.num2;
+     } else {
+       // Default: allow borrowing - generate random num1 > num2
+       num1 = Math.floor(Math.random() * (max - min)) + min;
+       num2 = Math.floor(Math.random() * (num1 - 1)) + 1;
+     }
   } else if (operation === 'multiply') {
      // Strict Single Digit Multiplier for this UI to work with standard Vertical Form
      const maxMult = 9;

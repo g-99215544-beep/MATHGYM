@@ -43,10 +43,11 @@ const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
   }
 };
 
-const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
+const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean) => void, onAdminClick: () => void }) => {
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('easy');
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
+  const [includeBorrowing, setIncludeBorrowing] = useState<boolean>(true);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
@@ -166,6 +167,28 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: Difficult
               ))}
             </div>
           </div>
+          {/* Borrowing Option - only show for subtraction */}
+          {op === 'subtract' && (
+            <div>
+              <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Pengumpulan Semula (Pinjam)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setIncludeBorrowing(true)}
+                  className={`py-3 rounded-xl font-bold transition-all shadow-lg ${includeBorrowing ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}
+                >
+                  <div className="text-lg">Ya</div>
+                  <div className="text-xs opacity-70">Dengan pinjam</div>
+                </button>
+                <button
+                  onClick={() => setIncludeBorrowing(false)}
+                  className={`py-3 rounded-xl font-bold transition-all shadow-lg ${!includeBorrowing ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}
+                >
+                  <div className="text-lg">Tidak</div>
+                  <div className="text-xs opacity-70">Tanpa pinjam</div>
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Jumlah Soalan</label>
             <div className="grid grid-cols-4 gap-2">
@@ -174,7 +197,7 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: Difficult
               ))}
             </div>
           </div>
-          <button onClick={() => onStart(difficulty, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <button onClick={() => onStart(difficulty, count, op, selectedStudent, op === 'subtract' ? includeBorrowing : undefined)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
         </div>
       </div>
     </div>
@@ -186,6 +209,7 @@ const QuizScreen = ({
   count,
   op,
   student,
+  includeBorrowing,
   onFinish,
   onHome
 }: {
@@ -193,6 +217,7 @@ const QuizScreen = ({
   count: number,
   op: OperationType,
   student?: Student,
+  includeBorrowing?: boolean,
   onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void,
   onHome: () => void
 }) => {
@@ -217,7 +242,7 @@ const QuizScreen = ({
   }, []);
 
   useEffect(() => {
-    const generated = Array.from({ length: count }).map((_, i) => generateProblemByDifficulty(difficulty, i, op));
+    const generated = Array.from({ length: count }).map((_, i) => generateProblemByDifficulty(difficulty, i, op, includeBorrowing));
     setProblems(generated);
     const initialAnswers: Record<string, UserAnswerState> = {};
     const initialSifir: Record<string, boolean> = {};
@@ -245,7 +270,7 @@ const QuizScreen = ({
           setActiveCell({ problemId: firstProb.id, columnIndex: 0, type: 'answer' });
       }
     }
-  }, [difficulty, count, op, getDivisionStartColumn]);
+  }, [difficulty, count, op, includeBorrowing, getDivisionStartColumn]);
 
   const toggleSifir = (probId: string) => {
       setSifirOpen(prev => ({ ...prev, [probId]: !prev[probId] }));
@@ -951,11 +976,11 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 
 const App = () => {
   const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
-  const [config, setConfig] = useState<{ difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student }>({ difficulty: 'easy', count: 10, op: 'add' });
+  const [config, setConfig] = useState<{ difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean }>({ difficulty: 'easy', count: 10, op: 'add' });
   const [results, setResults] = useState<any[]>([]);
 
-  const startQuiz = (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student) => {
-    setConfig({ difficulty, count, op, student });
+  const startQuiz = (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student, includeBorrowing?: boolean) => {
+    setConfig({ difficulty, count, op, student, includeBorrowing });
     setScreen('quiz');
   };
 
@@ -1013,7 +1038,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} onHome={restart} />}
+      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} includeBorrowing={config.includeBorrowing} onFinish={finishQuiz} onHome={restart} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
