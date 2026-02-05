@@ -1,0 +1,12 @@
+{
+  "name": "MathGym - Latihan Matematik Sekolah Rendah",
+  "short_name": "MathGym",
+  "description": "Aplikasi latihan matematik untuk murid sekolah rendah",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#f0f9ff",
+  "theme_color": "#0ea5e9",
+  "scope": "/",
+  "prefer_related_applications": false
+}
