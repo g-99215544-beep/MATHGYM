@@ -24,29 +24,64 @@ const requiresBorrowing = (num1: number, num2: number): boolean => {
 
 // Generate subtraction problem without borrowing
 const generateNoBorrowSubtraction = (min: number, max: number): { num1: number, num2: number } => {
-  // Strategy: Generate num1, then create num2 where each digit is <= corresponding digit of num1
-  const num1 = Math.floor(Math.random() * (max - min)) + min;
-  const digits1 = num1.toString().split('').map(Number);
+  // Try up to 100 times to find a valid pair
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const num1 = Math.floor(Math.random() * (max - min)) + min;
+    const digits1 = num1.toString().split('').map(Number);
 
-  // Generate num2 digit by digit, ensuring each digit <= corresponding digit of num1
-  const digits2: number[] = [];
-  for (let i = 0; i < digits1.length; i++) {
-    const maxDigit = digits1[i];
-    // Ensure first digit is at least 1 for multi-digit numbers
-    const minDigit = (i === 0 && digits1.length > 1) ? 1 : 0;
-    if (maxDigit >= minDigit) {
-      digits2.push(Math.floor(Math.random() * (maxDigit - minDigit + 1)) + minDigit);
-    } else {
-      digits2.push(0);
+    // Skip num1 if all non-leading digits are 0 (e.g., 10, 20, 100, 200)
+    // These can't have a valid num2 > 0 without borrowing
+    const hasNonZeroAfterFirst = digits1.slice(1).some(d => d > 0);
+    if (digits1.length > 1 && !hasNonZeroAfterFirst) {
+      continue; // Try another num1
+    }
+
+    // Generate num2 digit by digit, ensuring each digit <= corresponding digit of num1
+    const digits2: number[] = [];
+    let madeSmaller = false;
+
+    for (let i = 0; i < digits1.length; i++) {
+      const d1 = digits1[i];
+      const isFirstDigit = i === 0;
+      const isMultiDigit = digits1.length > 1;
+      const minDigit = (isFirstDigit && isMultiDigit) ? 1 : 0;
+
+      if (d1 < minDigit) {
+        // Can't satisfy constraint
+        digits2.push(minDigit);
+        continue;
+      }
+
+      // Decide what digit to use for num2
+      if (!madeSmaller && d1 > minDigit) {
+        // Make num2 smaller by choosing a digit < d1
+        const d2 = Math.floor(Math.random() * (d1 - minDigit)) + minDigit;
+        digits2.push(d2);
+        madeSmaller = true;
+      } else {
+        // Choose any digit from minDigit to d1
+        const d2 = Math.floor(Math.random() * (d1 - minDigit + 1)) + minDigit;
+        digits2.push(d2);
+        if (d2 < d1) madeSmaller = true;
+      }
+    }
+
+    const num2 = parseInt(digits2.join('')) || 1;
+
+    // Final validation: num2 must be >= 1, < num1, and no borrowing
+    if (num2 >= 1 && num2 < num1 && !requiresBorrowing(num1, num2)) {
+      return { num1, num2 };
     }
   }
 
-  let num2 = parseInt(digits2.join('')) || 1;
-  // Ensure num2 is at least 1 and less than num1
-  if (num2 >= num1) num2 = Math.max(1, num1 - 1);
-  if (num2 === 0) num2 = 1;
+  // Fallback: generate a safe pair (e.g., 99 - 11, 88 - 22, etc.)
+  // Create num1 with all digits >= 1, and num2 with all digits 1
+  const numDigits = min.toString().length;
+  const safeDigit = Math.floor(Math.random() * 4) + 5; // 5-8
+  const num1 = parseInt(String(safeDigit).repeat(numDigits));
+  const num2 = parseInt('1'.repeat(numDigits));
 
-  return { num1, num2 };
+  return { num1: Math.max(num1, min), num2 };
 };
 
 // New function using difficulty levels
