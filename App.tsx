@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MathProblem, YearLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType, QuizMode } from './types';
-import { generateProblem, checkAnswer } from './services/mathUtils';
+import { MathProblem, YearLevel, DifficultyLevel, UserAnswerState, ActiveCell, ValidationResult, OperationType, QuizMode } from './types';
+import { generateProblemByDifficulty, checkAnswer } from './services/mathUtils';
 import VerticalProblem from './components/VerticalProblem';
 import Keypad from './components/Keypad';
 import AdminLogin from './components/AdminLogin';
@@ -43,8 +43,8 @@ const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
   }
 };
 
-const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
-  const [year, setYear] = useState<YearLevel>(1);
+const HomeScreen = ({ onStart, onAdminClick }: { onStart: (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>('easy');
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
   const [students, setStudents] = useState<Student[]>([]);
@@ -148,10 +148,21 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, coun
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Pilih Tahun</label>
+            <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Tahap Kesukaran</label>
             <div className="grid grid-cols-3 gap-3">
-              {[1, 2, 3, 4, 5, 6].map((y) => (
-                <button key={y} onClick={() => setYear(y as YearLevel)} className={`py-3 rounded-xl font-bold text-xl transition-all shadow-lg ${year === y ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}>{y}</button>
+              {([
+                { id: 'easy', label: 'Mudah', desc: '2 digit' },
+                { id: 'medium', label: 'Sederhana', desc: '3 digit' },
+                { id: 'pro', label: 'Pro', desc: '4 digit' }
+              ] as const).map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => setDifficulty(d.id)}
+                  className={`py-3 rounded-xl font-bold transition-all shadow-lg ${difficulty === d.id ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}
+                >
+                  <div className="text-lg">{d.label}</div>
+                  <div className="text-xs opacity-70">{d.desc}</div>
+                </button>
               ))}
             </div>
           </div>
@@ -163,7 +174,7 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, coun
               ))}
             </div>
           </div>
-          <button onClick={() => onStart(year, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <button onClick={() => onStart(difficulty, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
         </div>
       </div>
     </div>
@@ -171,14 +182,14 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, coun
 };
 
 const QuizScreen = ({
-  year,
+  difficulty,
   count,
   op,
   student,
   onFinish,
   onHome
 }: {
-  year: YearLevel,
+  difficulty: DifficultyLevel,
   count: number,
   op: OperationType,
   student?: Student,
@@ -206,13 +217,13 @@ const QuizScreen = ({
   }, []);
 
   useEffect(() => {
-    const generated = Array.from({ length: count }).map((_, i) => generateProblem(year, i, op));
+    const generated = Array.from({ length: count }).map((_, i) => generateProblemByDifficulty(difficulty, i, op));
     setProblems(generated);
     const initialAnswers: Record<string, UserAnswerState> = {};
     const initialSifir: Record<string, boolean> = {};
     generated.forEach(p => {
-      initialAnswers[p.id] = { 
-          answerDigits: {}, 
+      initialAnswers[p.id] = {
+          answerDigits: {},
           carryDigits: {},
           borrowDigits: {},
           remainderDigits: {},
@@ -234,7 +245,7 @@ const QuizScreen = ({
           setActiveCell({ problemId: firstProb.id, columnIndex: 0, type: 'answer' });
       }
     }
-  }, [year, count, op, getDivisionStartColumn]);
+  }, [difficulty, count, op, getDivisionStartColumn]);
 
   const toggleSifir = (probId: string) => {
       setSifirOpen(prev => ({ ...prev, [probId]: !prev[probId] }));
@@ -311,8 +322,8 @@ const QuizScreen = ({
       const userAns = userAnswers[problemId];
       if (!prob || !userAns) return;
 
-      // Prevent editing locked problems in check-one mode
-      if (quizMode === 'check-one' && lockedProblems.has(problemId)) {
+      // Prevent editing locked problems
+      if (lockedProblems.has(problemId)) {
         return;
       }
 
@@ -648,9 +659,38 @@ const QuizScreen = ({
     }
   };
 
-  const handleSubmit = () => {
-    const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: checkAnswer(p, userAnswers[p.id]) }));
-    onFinish(res, student);
+  // Check all problems at once (stay in QuizScreen, show overview)
+  const handleCheckAll = () => {
+    const newValidations: Record<string, ValidationResult> = {};
+    const newLocked = new Set<string>();
+    let correctCount = 0;
+
+    problems.forEach(prob => {
+      const validation = checkAnswer(prob, userAnswers[prob.id]);
+      newValidations[prob.id] = validation;
+      newLocked.add(prob.id);
+      if (validation.isCorrect) correctCount++;
+    });
+
+    setValidationResults(newValidations);
+    setLockedProblems(newLocked);
+    setActiveCell(null);
+
+    // Play sound based on overall result
+    playSound(correctCount === problems.length ? 'correct' : 'wrong');
+
+    // Save score to Firebase if student is selected
+    if (student) {
+      const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: newValidations[p.id] }));
+      onFinish(res, student);
+    }
+  };
+
+  // Difficulty labels
+  const difficultyLabels: Record<DifficultyLevel, string> = {
+    easy: 'Mudah',
+    medium: 'Sederhana',
+    pro: 'Pro'
   };
 
   // Check if all problems are complete (have green cards)
@@ -665,11 +705,11 @@ const QuizScreen = ({
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
         <div>
           <h2 className={`font-bold text-lg text-slate-700`}>{op === 'divide' ? 'Latihan Bahagi' : 'Latihan Matematik'}</h2>
-          <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
+          <p className="text-slate-500 text-xs">{difficultyLabels[difficulty]} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
         </div>
         {/* Show "Semak Semua" only when ALL problems are complete but not all checked yet */}
         {allProblemsComplete && !allProblemsChecked && (
-          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Semak Semua</button>
+          <button onClick={handleCheckAll} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Semak Semua</button>
         )}
         {/* Show score and home button when all problems are checked */}
         {allProblemsChecked && (
@@ -911,11 +951,11 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 
 const App = () => {
   const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
-  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, student?: Student }>({ year: 1, count: 10, op: 'add' });
+  const [config, setConfig] = useState<{ difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student }>({ difficulty: 'easy', count: 10, op: 'add' });
   const [results, setResults] = useState<any[]>([]);
 
-  const startQuiz = (year: YearLevel, count: number, op: OperationType, student?: Student) => {
-    setConfig({ year, count, op, student });
+  const startQuiz = (difficulty: DifficultyLevel, count: number, op: OperationType, student?: Student) => {
+    setConfig({ difficulty, count, op, student });
     setScreen('quiz');
   };
 
@@ -935,11 +975,17 @@ const App = () => {
         divide: 'Bahagi'
       };
 
+      const difficultyLabels = {
+        easy: 'Mudah',
+        medium: 'Sederhana',
+        pro: 'Pro'
+      };
+
       const scoreRecord = {
         studentId: student.id,
         studentName: student.nama,
         kelas: student.kelas,
-        tahun: config.year,
+        difficulty: difficultyLabels[config.difficulty],
         operation: opLabels[config.op],
         totalQuestions: res.length,
         correctAnswers: totalCorrect,
@@ -967,7 +1013,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} onHome={restart} />}
+      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} onHome={restart} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
