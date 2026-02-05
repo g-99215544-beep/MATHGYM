@@ -43,11 +43,10 @@ const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
   }
 };
 
-const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student) => void, onAdminClick: () => void }) => {
+const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, student?: Student) => void, onAdminClick: () => void }) => {
   const [year, setYear] = useState<YearLevel>(1);
   const [count, setCount] = useState<number>(10);
   const [op, setOp] = useState<OperationType>('add');
-  const [quizMode, setQuizMode] = useState<QuizMode>('check-all');
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined);
@@ -164,33 +163,7 @@ const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, coun
               ))}
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Mod Semakan</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setQuizMode('check-all')}
-                className={`py-3 px-2 rounded-xl font-semibold text-sm transition-all shadow-lg ${
-                  quizMode === 'check-all' ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'
-                }`}
-              >
-                Semak Semua
-              </button>
-              <button
-                onClick={() => setQuizMode('check-one')}
-                className={`py-3 px-2 rounded-xl font-semibold text-sm transition-all shadow-lg ${
-                  quizMode === 'check-one' ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'
-                }`}
-              >
-                Satu-satu
-              </button>
-            </div>
-            <p className="text-white/60 text-xs mt-2">
-              {quizMode === 'check-all'
-                ? '* Semak semua soalan sekaligus'
-                : '* Semak dan kunci jawapan setiap soalan'}
-            </p>
-          </div>
-          <button onClick={() => onStart(year, count, op, quizMode, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
+          <button onClick={() => onStart(year, count, op, selectedStudent)} className="w-full bg-yellow-400 hover:bg-yellow-300 text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4">Mula Latihan</button>
         </div>
       </div>
     </div>
@@ -201,14 +174,12 @@ const QuizScreen = ({
   year,
   count,
   op,
-  quizMode,
   student,
   onFinish
 }: {
   year: YearLevel,
   count: number,
   op: OperationType,
-  quizMode: QuizMode,
   student?: Student,
   onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void
 }) => {
@@ -495,15 +466,26 @@ const QuizScreen = ({
               if (activeCell.type === 'answer') {
                    const nextColIdx = activeCell.columnIndex + 1;
                    if (prob && nextColIdx < prob.columns.length) {
-                        if (op === 'multiply' && prob.columns[activeCell.columnIndex].correctCarryOut > 0) {
+                        // For add/multiply, move to carry if current column has carry out
+                        if ((op === 'add' || op === 'multiply') && prob.columns[activeCell.columnIndex].correctCarryOut > 0) {
                             setTimeout(() => setActiveCell({ problemId: activeCell.problemId, columnIndex: nextColIdx, type: 'carry' }), 150);
                         } else {
                             setTimeout(() => setActiveCell({ problemId: activeCell.problemId, columnIndex: nextColIdx, type: 'answer' }), 150);
                         }
                    }
               }
-              if (activeCell.type === 'carry' && op === 'multiply') {
-                  setTimeout(() => setActiveCell({ ...activeCell, type: 'answer' }), 150);
+              // For add/multiply, after filling carry, move to answer only if answer is empty
+              if (activeCell.type === 'carry' && (op === 'add' || op === 'multiply')) {
+                  const currentAns = currentProblemAns.answerDigits[activeCell.columnIndex];
+                  if (!currentAns || currentAns === '') {
+                      setTimeout(() => setActiveCell({ ...activeCell, type: 'answer' }), 150);
+                  } else {
+                      // Answer already filled, move to next column's answer
+                      const nextColIdx = activeCell.columnIndex + 1;
+                      if (prob && nextColIdx < prob.columns.length) {
+                          setTimeout(() => setActiveCell({ problemId: activeCell.problemId, columnIndex: nextColIdx, type: 'answer' }), 150);
+                      }
+                  }
               }
           }
       }
@@ -668,17 +650,24 @@ const QuizScreen = ({
     onFinish(res, student);
   };
 
+  // Check if all problems are complete (have green cards)
+  const allProblemsComplete = problems.length > 0 && problems.every(p => isProblemComplete(p, userAnswers[p.id]));
+  // Check if all problems are checked/locked
+  const allProblemsChecked = problems.length > 0 && lockedProblems.size === problems.length;
+
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
         <div>
           <h2 className={`font-bold text-lg text-slate-700`}>{op === 'divide' ? 'Latihan Bahagi' : 'Latihan Matematik'}</h2>
-          <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan{quizMode === 'check-one' ? ` • ${lockedProblems.size} disemak` : ''}</p>
+          <p className="text-slate-500 text-xs">Tahun {year} • {problems.length} Soalan • {lockedProblems.size} disemak</p>
         </div>
-        {quizMode === 'check-all' && (
-          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md">Semak</button>
+        {/* Show "Semak Semua" only when ALL problems are complete but not all checked yet */}
+        {allProblemsComplete && !allProblemsChecked && (
+          <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Semak Semua</button>
         )}
-        {quizMode === 'check-one' && lockedProblems.size === problems.length && (
+        {/* Show "Lihat Keputusan" when all problems are checked */}
+        {allProblemsChecked && (
           <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Lihat Keputusan</button>
         )}
       </div>
@@ -718,50 +707,39 @@ const QuizScreen = ({
                         />
                     </div>
 
-                    {/* Check/Next Buttons for check-one mode */}
-                    {quizMode === 'check-one' && (
-                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
-                            {!isLocked && isComplete && (
-                                <button
-                                    onClick={() => handleCheckOne(prob.id)}
-                                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
-                                >
-                                    Semak Jawapan
-                                </button>
-                            )}
+                    {/* Check/Next/Result Buttons */}
+                    <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                        {/* Show "Semak Jawapan" when complete but not locked */}
+                        {!isLocked && isComplete && (
+                            <button
+                                onClick={() => handleCheckOne(prob.id)}
+                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
+                            >
+                                Semak Jawapan
+                            </button>
+                        )}
 
-                            {isLocked && hasNext && (
-                                <button
-                                    onClick={() => handleMoveToNext(prob.id)}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
-                                >
-                                    Seterusnya
-                                </button>
-                            )}
-
-                            {isLocked && (
-                                <div className={`px-5 py-2.5 rounded-full font-bold ${
-                                    validation?.isCorrect
-                                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
-                                        : 'bg-red-100 text-red-800 border-2 border-red-400'
-                                }`}>
-                                    {validation?.isCorrect ? 'Betul' : 'Salah'}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Next Button for check-all mode when problem is complete */}
-                    {quizMode === 'check-all' && isComplete && hasNext && (
-                        <div className="mt-3 flex justify-center">
+                        {/* Show "Seterusnya" when locked and has next, OR when complete but not locked and has next */}
+                        {((isLocked && hasNext) || (!isLocked && isComplete && hasNext)) && (
                             <button
                                 onClick={() => handleMoveToNext(prob.id)}
                                 className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
                             >
                                 Seterusnya
                             </button>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Show result badge when locked */}
+                        {isLocked && (
+                            <div className={`px-5 py-2.5 rounded-full font-bold ${
+                                validation?.isCorrect
+                                    ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                                    : 'bg-red-100 text-red-800 border-2 border-red-400'
+                            }`}>
+                                {validation?.isCorrect ? 'Betul' : 'Salah'}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 );
             })}
@@ -806,11 +784,11 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
 
 const App = () => {
   const [screen, setScreen] = useState<'home' | 'quiz' | 'result' | 'adminLogin' | 'adminDashboard'>('home');
-  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student }>({ year: 1, count: 10, op: 'add', quizMode: 'check-all' });
+  const [config, setConfig] = useState<{ year: YearLevel, count: number, op: OperationType, student?: Student }>({ year: 1, count: 10, op: 'add' });
   const [results, setResults] = useState<any[]>([]);
 
-  const startQuiz = (year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student) => {
-    setConfig({ year, count, op, quizMode, student });
+  const startQuiz = (year: YearLevel, count: number, op: OperationType, student?: Student) => {
+    setConfig({ year, count, op, student });
     setScreen('quiz');
   };
 
@@ -862,7 +840,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} quizMode={config.quizMode} student={config.student} onFinish={finishQuiz} />}
+      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
