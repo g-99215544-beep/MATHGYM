@@ -352,14 +352,14 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-md border-2 border-blue-100 mx-auto mb-8 relative w-fit min-w-[300px] overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-md border-2 border-blue-100 mx-auto relative w-fit min-w-[300px] overflow-hidden">
         {/* Header Badges */}
         <div className="absolute left-0 top-0 p-2 flex gap-2 z-30 pointer-events-none">
              <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm pointer-events-auto">
                 {parseInt(problem.id) + 1}
              </div>
              {onToggleSifir && (
-                 <button 
+                 <button
                     onClick={onToggleSifir}
                     className={`pointer-events-auto px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${showSifir ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-600 hover:bg-purple-200'}`}
                  >
@@ -367,10 +367,10 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
                  </button>
              )}
         </div>
-        
+
         <div className="flex flex-row">
             {/* Main Content including Sifir in one scroll area for Division */}
-            <div className={`flex-1 min-w-0 ${isDivision ? 'pt-14 pb-4' : 'p-6 pt-16'}`}> 
+            <div className={`flex-1 min-w-0 ${isDivision ? 'pt-12 pb-3' : 'p-4 pt-14 pb-3'}`}>
                  <VerticalLayout />
             </div>
         </div>
