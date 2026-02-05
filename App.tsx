@@ -8,6 +8,41 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import { loadStudents, getClasses, getStudentsByClass, Student, saveScore } from './services/firebase';
 
+// Sound effects utility
+const playSound = (type: 'keypress' | 'correct' | 'wrong') => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  if (type === 'keypress') {
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    gainNode.gain.value = 0.1;
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.05);
+  } else if (type === 'correct') {
+    // Happy ascending tone
+    oscillator.frequency.value = 523.25; // C5
+    oscillator.type = 'sine';
+    gainNode.gain.value = 0.15;
+    oscillator.start();
+    oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+    oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } else if (type === 'wrong') {
+    // Descending buzzer tone
+    oscillator.frequency.value = 300;
+    oscillator.type = 'square';
+    gainNode.gain.value = 0.1;
+    oscillator.start();
+    oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.15);
+    oscillator.stop(audioContext.currentTime + 0.25);
+  }
+};
+
 const HomeScreen = ({ onStart, onAdminClick }: { onStart: (year: YearLevel, count: number, op: OperationType, quizMode: QuizMode, student?: Student) => void, onAdminClick: () => void }) => {
   const [year, setYear] = useState<YearLevel>(1);
   const [count, setCount] = useState<number>(10);
@@ -392,6 +427,10 @@ const QuizScreen = ({
 
   const handleKeyPress = (key: string) => {
     if (!activeCell) return;
+    // Play keypress sound
+    if (key !== '') {
+      playSound('keypress');
+    }
     setUserAnswers(prev => {
       const currentProblemAns = prev[activeCell.problemId];
       let targetRecord: 'answerDigits' | 'carryDigits' | 'borrowDigits' | 'remainderDigits';
@@ -541,7 +580,21 @@ const QuizScreen = ({
 
   // Check if a problem is complete (all required fields filled)
   const isProblemComplete = (problem: MathProblem, userAns: UserAnswerState): boolean => {
-    // Check all answer digits are filled
+    if (op === 'divide') {
+      // For division, only check columns from start column to 0
+      const startCol = getDivisionStartColumn(problem);
+      for (let i = startCol; i >= 0; i--) {
+        if (!userAns.answerDigits[i]) return false;
+        if (!userAns.slashedCols[i]) return false;
+        const col = problem.columns[i];
+        if (col.correctCarryOut > 0) {
+          if (!userAns.remainderDigits[i]) return false;
+        }
+      }
+      return true;
+    }
+
+    // For other operations, check all answer digits are filled
     for (let i = 0; i < problem.columns.length; i++) {
       if (!userAns.answerDigits[i]) return false;
     }
@@ -566,14 +619,6 @@ const QuizScreen = ({
           if (!userAns.borrowDigits[i]) return false;
         }
       }
-    } else if (op === 'divide') {
-      for (let i = 0; i < problem.columns.length; i++) {
-        if (!userAns.slashedCols[i]) return false;
-        const col = problem.columns[i];
-        if (col.correctCarryOut > 0) {
-          if (!userAns.remainderDigits[i]) return false;
-        }
-      }
     }
 
     return true;
@@ -585,6 +630,9 @@ const QuizScreen = ({
     if (!prob) return;
 
     const validation = checkAnswer(prob, userAnswers[problemId]);
+
+    // Play sound based on result
+    playSound(validation.isCorrect ? 'correct' : 'wrong');
 
     // Lock this problem
     setLockedProblems(prev => new Set(prev).add(problemId));
@@ -645,11 +693,15 @@ const QuizScreen = ({
 
                 return (
                 <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
-                    {/* Problem Card Wrapper with Green Border - shown for both modes when complete */}
+                    {/* Problem Card Wrapper with Border - green when complete, green/red when locked based on result */}
                     <div className={`transition-all duration-300 ${
-                        isComplete && !isLocked
-                          ? 'ring-4 ring-green-400 rounded-3xl'
-                          : ''
+                        isLocked
+                          ? validation?.isCorrect
+                            ? 'ring-4 ring-green-400 rounded-3xl'
+                            : 'ring-4 ring-red-400 rounded-3xl'
+                          : isComplete
+                            ? 'ring-4 ring-green-400 rounded-3xl'
+                            : ''
                     }`}>
                         <VerticalProblem
                             problem={prob}
