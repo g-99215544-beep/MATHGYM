@@ -57,18 +57,26 @@ export interface ScoreRecord {
 // Load students from Firebase
 export const loadStudents = async (): Promise<Student[]> => {
   try {
-    const studentsRef = ref(studentDb, 'students');
-    const snapshot = await get(studentsRef);
+    // Read from config/classes/classData path
+    const classDataRef = ref(studentDb, 'config/classes/classData');
+    const snapshot = await get(classDataRef);
 
     if (snapshot.exists()) {
-      const data = snapshot.val();
+      const classData = snapshot.val();
       const students: Student[] = [];
 
-      Object.keys(data).forEach(key => {
-        students.push({
-          id: key,
-          nama: data[key].nama || data[key].name || 'Unknown',
-          kelas: data[key].kelas || data[key].class || 'Unknown'
+      // Loop through each class (e.g., "1B", "2A", etc.)
+      Object.keys(classData).forEach(className => {
+        const studentList = classData[className];
+
+        // Loop through each student in the class (0, 1, 2, 3...)
+        Object.keys(studentList).forEach(index => {
+          const studentName = studentList[index];
+          students.push({
+            id: `${className}-${index}`, // Unique ID: class-index (e.g., "1B-0")
+            nama: studentName,
+            kelas: className
+          });
         });
       });
 
