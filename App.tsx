@@ -175,13 +175,15 @@ const QuizScreen = ({
   count,
   op,
   student,
-  onFinish
+  onFinish,
+  onHome
 }: {
   year: YearLevel,
   count: number,
   op: OperationType,
   student?: Student,
-  onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void
+  onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void,
+  onHome: () => void
 }) => {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswerState>>({});
@@ -190,6 +192,7 @@ const QuizScreen = ({
   const [sifirOpen, setSifirOpen] = useState<Record<string, boolean>>({});
   const [lockedProblems, setLockedProblems] = useState<Set<string>>(new Set()); // Problems that have been checked
   const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({}); // Results for checked problems
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null); // For zoom view
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const getDivisionStartColumn = useCallback((problem: MathProblem): number => {
@@ -654,6 +657,8 @@ const QuizScreen = ({
   const allProblemsComplete = problems.length > 0 && problems.every(p => isProblemComplete(p, userAnswers[p.id]));
   // Check if all problems are checked/locked
   const allProblemsChecked = problems.length > 0 && lockedProblems.size === problems.length;
+  // Calculate score
+  const totalCorrect = Object.values(validationResults).filter(v => v.isCorrect).length;
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -666,87 +671,209 @@ const QuizScreen = ({
         {allProblemsComplete && !allProblemsChecked && (
           <button onClick={handleSubmit} className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Semak Semua</button>
         )}
-        {/* Show "Lihat Keputusan" when all problems are checked */}
+        {/* Show score and home button when all problems are checked */}
         {allProblemsChecked && (
-          <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-bold shadow-md animate-pulse">Lihat Keputusan</button>
+          <div className="flex items-center gap-3">
+            <div className={`px-4 py-2 rounded-full font-bold ${totalCorrect === problems.length ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+              {totalCorrect}/{problems.length} Betul
+            </div>
+            <button
+              onClick={onHome}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-full shadow-md transition-all"
+              title="Kembali ke Menu"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
-        <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+      {/* Overview Grid Mode - when all problems checked */}
+      {allProblemsChecked && !selectedProblemId && (
+        <div className="flex-1 overflow-y-auto p-4 pb-8">
+          <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
             {problems.map((prob, idx) => {
-                const isLocked = lockedProblems.has(prob.id);
-                const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
-                const validation = validationResults[prob.id];
-                const hasNext = idx < problems.length - 1;
-
-                return (
-                <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
-                    {/* Problem Card Wrapper with Border - green when complete, green/red when locked based on result */}
-                    <div className={`transition-all duration-300 ${
-                        isLocked
-                          ? validation?.isCorrect
-                            ? 'ring-4 ring-green-400 rounded-3xl'
-                            : 'ring-4 ring-red-400 rounded-3xl'
-                          : isComplete
-                            ? 'ring-4 ring-green-400 rounded-3xl'
-                            : ''
-                    }`}>
-                        <VerticalProblem
-                            problem={prob}
-                            userAnswers={userAnswers[prob.id]}
-                            activeCell={activeCell}
-                            onCellClick={(col, type) => handleCellClick(prob.id, col, type)}
-                            onToggleSlash={(col) => handleToggleSlash(prob.id, col)}
-                            isSubmitted={isLocked}
-                            validationResult={validation}
-                            warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
-                            showSifir={sifirOpen[prob.id]}
-                            onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
-                            blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[prob.id])}
-                        />
-                    </div>
-
-                    {/* Check/Next/Result Buttons */}
-                    <div className="mt-3 flex gap-3 flex-wrap justify-center">
-                        {/* Show "Semak Jawapan" when complete but not locked */}
-                        {!isLocked && isComplete && (
-                            <button
-                                onClick={() => handleCheckOne(prob.id)}
-                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
-                            >
-                                Semak Jawapan
-                            </button>
-                        )}
-
-                        {/* Show "Seterusnya" when locked and has next, OR when complete but not locked and has next */}
-                        {((isLocked && hasNext) || (!isLocked && isComplete && hasNext)) && (
-                            <button
-                                onClick={() => handleMoveToNext(prob.id)}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
-                            >
-                                Seterusnya
-                            </button>
-                        )}
-
-                        {/* Show result badge when locked */}
-                        {isLocked && (
-                            <div className={`px-5 py-2.5 rounded-full font-bold ${
-                                validation?.isCorrect
-                                    ? 'bg-green-100 text-green-800 border-2 border-green-400'
-                                    : 'bg-red-100 text-red-800 border-2 border-red-400'
-                            }`}>
-                                {validation?.isCorrect ? 'Betul' : 'Salah'}
-                            </div>
-                        )}
-                    </div>
+              const validation = validationResults[prob.id];
+              return (
+                <div
+                  key={prob.id}
+                  onClick={() => setSelectedProblemId(prob.id)}
+                  className={`cursor-pointer transform hover:scale-105 transition-all duration-200 rounded-2xl p-2 ${
+                    validation?.isCorrect
+                      ? 'bg-green-50 ring-2 ring-green-400'
+                      : 'bg-red-50 ring-2 ring-red-400'
+                  }`}
+                >
+                  <div className="transform scale-50 origin-top-left w-[200%] pointer-events-none">
+                    <VerticalProblem
+                      problem={prob}
+                      userAnswers={userAnswers[prob.id]}
+                      activeCell={null}
+                      onCellClick={() => {}}
+                      isSubmitted={true}
+                      validationResult={validation}
+                    />
+                  </div>
+                  <div className={`text-center font-bold text-sm mt-[-40px] ${
+                    validation?.isCorrect ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {idx + 1}. {validation?.isCorrect ? 'Betul' : 'Salah'}
+                  </div>
                 </div>
-                );
+              );
             })}
+          </div>
         </div>
-      </div>
+      )}
 
-      <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />
+      {/* Zoomed View - when a problem is selected */}
+      {allProblemsChecked && selectedProblemId && (
+        <div className="flex-1 overflow-y-auto p-4 pb-8">
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => setSelectedProblemId(null)}
+              className="mb-4 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-full font-semibold flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Kembali ke Overview
+            </button>
+            {(() => {
+              const prob = problems.find(p => p.id === selectedProblemId);
+              const validation = validationResults[selectedProblemId];
+              const idx = problems.findIndex(p => p.id === selectedProblemId);
+              if (!prob) return null;
+              return (
+                <div className={`rounded-3xl p-1 ${
+                  validation?.isCorrect ? 'ring-4 ring-green-400' : 'ring-4 ring-red-400'
+                }`}>
+                  <VerticalProblem
+                    problem={prob}
+                    userAnswers={userAnswers[prob.id]}
+                    activeCell={null}
+                    onCellClick={() => {}}
+                    isSubmitted={true}
+                    validationResult={validation}
+                  />
+                  <div className={`text-center font-bold text-lg mt-2 ${
+                    validation?.isCorrect ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    Soalan {idx + 1}: {validation?.isCorrect ? 'Betul' : 'Salah'}
+                  </div>
+                </div>
+              );
+            })()}
+            {/* Navigation buttons */}
+            <div className="flex gap-4 mt-4">
+              {problems.findIndex(p => p.id === selectedProblemId) > 0 && (
+                <button
+                  onClick={() => {
+                    const idx = problems.findIndex(p => p.id === selectedProblemId);
+                    setSelectedProblemId(problems[idx - 1].id);
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full font-semibold"
+                >
+                  Sebelum
+                </button>
+              )}
+              {problems.findIndex(p => p.id === selectedProblemId) < problems.length - 1 && (
+                <button
+                  onClick={() => {
+                    const idx = problems.findIndex(p => p.id === selectedProblemId);
+                    setSelectedProblemId(problems[idx + 1].id);
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full font-semibold"
+                >
+                  Seterusnya
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Normal Quiz Mode - when not all checked */}
+      {!allProblemsChecked && (
+        <>
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+            <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+                {problems.map((prob, idx) => {
+                    const isLocked = lockedProblems.has(prob.id);
+                    const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
+                    const validation = validationResults[prob.id];
+                    const hasNext = idx < problems.length - 1;
+
+                    return (
+                    <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
+                        {/* Problem Card Wrapper with Border - green when complete, green/red when locked based on result */}
+                        <div className={`transition-all duration-300 ${
+                            isLocked
+                              ? validation?.isCorrect
+                                ? 'ring-4 ring-green-400 rounded-3xl'
+                                : 'ring-4 ring-red-400 rounded-3xl'
+                              : isComplete
+                                ? 'ring-4 ring-green-400 rounded-3xl'
+                                : ''
+                        }`}>
+                            <VerticalProblem
+                                problem={prob}
+                                userAnswers={userAnswers[prob.id]}
+                                activeCell={activeCell}
+                                onCellClick={(col, type) => handleCellClick(prob.id, col, type)}
+                                onToggleSlash={(col) => handleToggleSlash(prob.id, col)}
+                                isSubmitted={isLocked}
+                                validationResult={validation}
+                                warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
+                                showSifir={sifirOpen[prob.id]}
+                                onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
+                                blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[prob.id])}
+                            />
+                        </div>
+
+                        {/* Check/Next/Result Buttons */}
+                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                            {/* Show "Semak Jawapan" when complete but not locked */}
+                            {!isLocked && isComplete && (
+                                <button
+                                    onClick={() => handleCheckOne(prob.id)}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
+                                >
+                                    Semak Jawapan
+                                </button>
+                            )}
+
+                            {/* Show "Seterusnya" when locked and has next, OR when complete but not locked and has next */}
+                            {((isLocked && hasNext) || (!isLocked && isComplete && hasNext)) && (
+                                <button
+                                    onClick={() => handleMoveToNext(prob.id)}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
+                                >
+                                    Seterusnya
+                                </button>
+                            )}
+
+                            {/* Show result badge when locked */}
+                            {isLocked && (
+                                <div className={`px-5 py-2.5 rounded-full font-bold ${
+                                    validation?.isCorrect
+                                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                                        : 'bg-red-100 text-red-800 border-2 border-red-400'
+                                }`}>
+                                    {validation?.isCorrect ? 'Betul' : 'Salah'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    );
+                })}
+            </div>
+          </div>
+          <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />
+        </>
+      )}
     </div>
   );
 };
@@ -840,7 +967,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} />}
-      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} />}
+      {screen === 'quiz' && <QuizScreen year={config.year} count={config.count} op={config.op} student={config.student} onFinish={finishQuiz} onHome={restart} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} />}
