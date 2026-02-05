@@ -3,8 +3,8 @@ import { MathProblem, ActiveCell, ValidationResult } from '../types';
 
 interface VerticalProblemProps {
   problem: MathProblem;
-  userAnswers: { 
-      answerDigits: Record<number, string>; 
+  userAnswers: {
+      answerDigits: Record<number, string>;
       carryDigits: Record<number, string>;
       borrowDigits: Record<number, string>;
       remainderDigits: Record<number, string>;
@@ -18,6 +18,7 @@ interface VerticalProblemProps {
   warnCol?: number | null;
   showSifir?: boolean;
   onToggleSifir?: () => void;
+  blockedAnswerColumns?: Set<number>;
 }
 
 const VerticalProblem: React.FC<VerticalProblemProps> = ({
@@ -30,7 +31,8 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
   isSubmitted,
   warnCol,
   showSifir,
-  onToggleSifir
+  onToggleSifir,
+  blockedAnswerColumns = new Set()
 }) => {
   const isDivision = problem.operation === 'divide';
   const isSubtraction = problem.operation === 'subtract';
@@ -47,7 +49,8 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
 
   const renderCell = (colIndex: number, type: 'answer' | 'carry' | 'borrow' | 'remainder', value: string, correctVal: number, isCorrect: boolean | null | undefined, colData: any) => {
       const isActive = activeCell?.problemId === problem.id && activeCell.columnIndex === colIndex && activeCell.type === type;
-      
+      const isBlocked = type === 'answer' && blockedAnswerColumns.has(colIndex) && !isSubmitted;
+
       let bg = 'bg-slate-50 border-slate-200';
       let text = 'text-slate-800';
       let widthClass = 'w-14';
@@ -119,7 +122,13 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
       }
 
       if (type === 'answer') {
-         if (isActive) bg = 'bg-blue-100 border-blue-500';
+         if (isBlocked) {
+             // Blocked state - disabled appearance
+             bg = 'bg-slate-200 border-slate-300';
+             text = 'text-slate-400';
+         } else if (isActive) {
+             bg = 'bg-blue-100 border-blue-500';
+         }
          if (isSubmitted && isCorrect !== undefined) {
              bg = isCorrect ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500';
              text = isCorrect ? 'text-green-700' : 'text-red-700';
@@ -162,12 +171,16 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
            return <div className="w-0 overflow-hidden"></div>;
       }
 
+      const cursorClass = isBlocked ? 'cursor-not-allowed' : 'cursor-pointer';
+
       return (
-        <div 
-            className={`${widthClass} ${heightClass} ${roundedClass} ${borderClass} flex items-center justify-center font-bold cursor-pointer transition-all shadow-sm ${bg} ${text} ${textSize} ${type === 'borrow' ? '-mr-1 z-10' : ''} ${type === 'remainder' ? 'ml-1' : ''}`}
+        <div
+            className={`${widthClass} ${heightClass} ${roundedClass} ${borderClass} flex items-center justify-center font-bold ${cursorClass} transition-all shadow-sm ${bg} ${text} ${textSize} ${type === 'borrow' ? '-mr-1 z-10' : ''} ${type === 'remainder' ? 'ml-1' : ''}`}
             onClick={(e) => {
                 e.stopPropagation();
-                !isSubmitted && onCellClick(colIndex, type);
+                if (!isSubmitted && !isBlocked) {
+                    onCellClick(colIndex, type);
+                }
             }}
         >
             {value}

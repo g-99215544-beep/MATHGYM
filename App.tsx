@@ -493,6 +493,52 @@ const QuizScreen = ({
       setTimeout(() => setWarnCol(null), 1000);
   };
 
+  // Get columns that are blocked (answer box blocked until carry/borrow filled)
+  const getBlockedAnswerColumns = (problem: MathProblem, userAns: UserAnswerState): Set<number> => {
+    const blockedCols = new Set<number>();
+
+    if (op === 'add' || op === 'multiply') {
+      // Block answer column if previous column has unfilled carry
+      for (let i = 0; i < problem.columns.length; i++) {
+        const prevColIndex = i - 1;
+        if (prevColIndex >= 0) {
+          const prevCol = problem.columns[prevColIndex];
+          const prevAns = userAns.answerDigits[prevColIndex];
+          if (prevCol.correctCarryOut > 0 && prevAns && prevAns !== '') {
+            if (!userAns.carryDigits[i] || userAns.carryDigits[i] === '') {
+              blockedCols.add(i);
+            }
+          }
+        }
+      }
+    } else if (op === 'subtract') {
+      // Block answer column if slashed but carry not filled, or if borrow not filled
+      for (let i = 0; i < problem.columns.length; i++) {
+        if (userAns.slashedCols[i] && (!userAns.carryDigits[i] || userAns.carryDigits[i] === '')) {
+          blockedCols.add(i);
+        }
+        const nextColIndex = i + 1;
+        if (userAns.slashedCols[nextColIndex] && userAns.carryDigits[nextColIndex] && (!userAns.borrowDigits[i] || userAns.borrowDigits[i] === '')) {
+          blockedCols.add(i);
+        }
+      }
+    } else if (op === 'divide') {
+      // Block answer column if remainder needs to be filled
+      for (let i = 0; i < problem.columns.length; i++) {
+        if (userAns.slashedCols[i] && problem.columns[i].correctCarryOut > 0) {
+          if (!userAns.remainderDigits[i] || userAns.remainderDigits[i] === '') {
+            // Block the next column (to the right in display, lower index)
+            if (i > 0) {
+              blockedCols.add(i - 1);
+            }
+          }
+        }
+      }
+    }
+
+    return blockedCols;
+  };
+
   // Check if a problem is complete (all required fields filled)
   const isProblemComplete = (problem: MathProblem, userAns: UserAnswerState): boolean => {
     // Check all answer digits are filled
@@ -546,25 +592,8 @@ const QuizScreen = ({
     // Store validation result
     setValidationResults(prev => ({ ...prev, [problemId]: validation }));
 
-    // Find next problem
-    const currentIdx = problems.findIndex(p => p.id === problemId);
-    if (currentIdx < problems.length - 1) {
-      const nextProb = problems[currentIdx + 1];
-      // Scroll to next problem
-      setTimeout(() => {
-        const nextElement = document.getElementById(`prob-${nextProb.id}`);
-        if (nextElement) {
-          nextElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        // Set active cell to first cell of next problem
-        if (op === 'divide') {
-          const startCol = getDivisionStartColumn(nextProb);
-          setActiveCell({ problemId: nextProb.id, columnIndex: startCol, type: 'answer' });
-        } else {
-          setActiveCell({ problemId: nextProb.id, columnIndex: 0, type: 'answer' });
-        }
-      }, 300);
-    }
+    // Clear active cell - user must click "Seterusnya" to navigate to next problem
+    setActiveCell(null);
   };
 
   // Handle moving to next problem
@@ -633,6 +662,7 @@ const QuizScreen = ({
                             warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
                             showSifir={sifirOpen[prob.id]}
                             onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
+                            blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[prob.id])}
                         />
                     </div>
 
@@ -666,6 +696,18 @@ const QuizScreen = ({
                                     {validation?.isCorrect ? 'Betul' : 'Salah'}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Next Button for check-all mode when problem is complete */}
+                    {quizMode === 'check-all' && isComplete && hasNext && (
+                        <div className="mt-3 flex justify-center">
+                            <button
+                                onClick={() => handleMoveToNext(prob.id)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
+                            >
+                                Seterusnya
+                            </button>
                         </div>
                     )}
                 </div>
