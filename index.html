@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ms">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>MathGym</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Fredoka', 'sans-serif'],
+            },
+            colors: {
+              primary: '#0ea5e9', // Sky 500
+              secondary: '#6366f1', // Indigo 500
+              paper: '#ffffff',
+              correct: '#22c55e',
+              wrong: '#ef4444',
+              carryCorrect: '#3b82f6',
+              carryWrong: '#f97316',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #f0f9ff;
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+      }
+      /* Hide scrollbar for clean UI */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      @keyframes blink-warning {
+        0%, 100% { 
+          border-color: #fbbf24; /* amber-400 */
+          background-color: #fffbeb; /* amber-50 */
+          box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+          transform: scale(1);
+        }
+        50% { 
+          border-color: #f59e0b; /* amber-500 */
+          background-color: #fef3c7; /* amber-100 */
+          box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.2);
+          transform: scale(1.1);
+        }
+      }
+      
+      .animate-blink-custom {
+        animation: blink-warning 1.5s infinite ease-in-out;
+      }
+
+      /* Diagonal Strikethrough (Single Digit) for Subtraction or standard cases */
+      .diagonal-strike {
+        position: relative;
+        color: #94a3b8; /* slate-400 */
+      }
+      .diagonal-strike::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 120%;
+        height: 3px;
+        background-color: #ef4444; /* red-500 */
+        transform: translate(-50%, -50%) rotate(-45deg); /* Centered slash */
+        opacity: 0.8;
+        pointer-events: none;
+        z-index: 50; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
