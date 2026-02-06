@@ -856,7 +856,7 @@ const QuizScreen = ({
 
       {/* Overview Grid Mode - when all problems checked */}
       {allProblemsChecked && !selectedProblemId && (
-        <div className="flex-1 overflow-y-auto p-4 pb-8">
+        <div className="flex-1 overflow-y-auto p-4 pb-24">
           <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
             {problems.map((prob, idx) => {
               const validation = validationResults[prob.id];
@@ -888,6 +888,18 @@ const QuizScreen = ({
                 </div>
               );
             })}
+          </div>
+          {/* Floating Home Button */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
+            <button
+              onClick={onHome}
+              className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 transition-all active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Menu Utama
+            </button>
           </div>
         </div>
       )}
