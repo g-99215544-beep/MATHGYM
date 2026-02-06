@@ -787,6 +787,7 @@ const QuizScreen = ({
   }, [allProblemsChecked, scoreSaved]);
 
   // Handle "Semak dan Hantar" - check all problems (even incomplete) and submit to Firebase
+  // Stays on quiz screen to show overview grid instead of navigating to result screen
   const handleSubmitAll = () => {
     const newValidations: Record<string, ValidationResult> = {};
     const newLocked = new Set<string>();
@@ -807,8 +808,11 @@ const QuizScreen = ({
 
     setScoreSaved(true);
 
-    const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: newValidations[p.id] }));
-    onFinish(res, student);
+    // Save to Firebase without navigating away - stay on quiz screen to show overview grid
+    if (student) {
+      const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: newValidations[p.id] }));
+      onSaveScore(res, student);
+    }
   };
 
   return (
