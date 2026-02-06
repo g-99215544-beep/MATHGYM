@@ -183,7 +183,12 @@ export const loadAllAssignments = async (): Promise<Assignment[]> => {
       const assignments: Assignment[] = [];
 
       Object.keys(data).forEach(key => {
-        assignments.push(data[key]);
+        const raw = data[key];
+        assignments.push({
+          ...raw,
+          assignedStudentIds: Array.isArray(raw.assignedStudentIds) ? raw.assignedStudentIds : [],
+          completedBy: Array.isArray(raw.completedBy) ? raw.completedBy.filter((id: string) => id !== '__placeholder__') : []
+        });
       });
 
       // Sort by creation date descending

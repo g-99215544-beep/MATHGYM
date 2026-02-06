@@ -64,17 +64,21 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
 
     setCreating(true);
 
-    const newAssignment: Omit<Assignment, 'id'> = {
+    const newAssignment: any = {
       title: title.trim(),
       kelas: selectedClass,
       assignedStudentIds: selectedStudentIds,
       difficulty,
       operation,
       questionCount,
-      includeBorrowing: operation === 'subtract' ? includeBorrowing : undefined,
       createdAt: Date.now(),
-      completedBy: []
+      completedBy: ['__placeholder__']
     };
+
+    // Only include borrowing field for subtraction
+    if (operation === 'subtract') {
+      newAssignment.includeBorrowing = includeBorrowing;
+    }
 
     const assignmentId = await createAssignment(newAssignment);
 

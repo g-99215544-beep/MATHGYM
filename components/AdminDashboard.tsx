@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { loadAllScores, ScoreRecord } from '../services/firebase';
 import StudentDetailModal from './StudentDetailModal';
 
@@ -36,12 +36,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
     return true;
   });
 
-  // Group scores by class
-  const scoresByClass = filteredScores.reduce((acc, score) => {
-    if (!acc[score.kelas]) acc[score.kelas] = [];
-    acc[score.kelas].push(score);
-    return acc;
-  }, {} as Record<string, ScoreRecord[]>);
+  // Group scores by class, then by student
+  const studentsByClass = useMemo(() => {
+    const byClass: Record<string, Record<string, { name: string; scores: ScoreRecord[] }>> = {};
+
+    filteredScores.forEach(score => {
+      if (!byClass[score.kelas]) byClass[score.kelas] = {};
+      const studentKey = score.studentName;
+      if (!byClass[score.kelas][studentKey]) {
+        byClass[score.kelas][studentKey] = { name: score.studentName, scores: [] };
+      }
+      byClass[score.kelas][studentKey].scores.push(score);
+    });
+
+    return byClass;
+  }, [filteredScores]);
+
+  // Count unique students
+  const totalStudents = useMemo(() => {
+    const studentSet = new Set(filteredScores.map(s => `${s.kelas}-${s.studentName}`));
+    return studentSet.size;
+  }, [filteredScores]);
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -113,8 +128,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
             </div>
           </div>
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="text-purple-600 text-sm font-semibold mb-1">Jumlah Kelas</div>
-            <div className="text-3xl font-bold text-purple-900">{classes.length}</div>
+            <div className="text-purple-600 text-sm font-semibold mb-1">Jumlah Murid</div>
+            <div className="text-3xl font-bold text-purple-900">{totalStudents}</div>
           </div>
         </div>
       </div>
@@ -163,59 +178,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.keys(scoresByClass).sort().map(kelas => (
-              <div key={kelas} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-                <div className="bg-slate-100 px-6 py-3 border-b border-slate-200">
-                  <h2 className="text-xl font-bold text-slate-800">Kelas {kelas}</h2>
-                  <p className="text-sm text-slate-600">{scoresByClass[kelas].length} rekod</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Nama Murid</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Tahun</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Operasi</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Soalan</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Betul</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Salah</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Markah</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Tarikh</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {scoresByClass[kelas].map((score, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium">
-                            <button
-                              onClick={() => setSelectedStudent({ name: score.studentName, class: score.kelas })}
-                              className="text-blue-600 hover:text-blue-800 hover:underline font-semibold transition-colors"
-                            >
-                              {score.studentName}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{score.tahun}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{score.operation}</td>
-                          <td className="px-4 py-3 text-sm text-center text-slate-600">{score.totalQuestions}</td>
-                          <td className="px-4 py-3 text-sm text-center font-semibold text-green-600">{score.correctAnswers}</td>
-                          <td className="px-4 py-3 text-sm text-center font-semibold text-red-600">{score.wrongAnswers}</td>
-                          <td className="px-4 py-3">
-                            <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${
-                              score.percentage > 50
-                                ? 'bg-green-100 text-green-800 border border-green-300'
-                                : 'bg-red-100 text-red-800 border border-red-300'
-                            }`}>
-                              {score.percentage}%
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-slate-500">{formatDate(score.timestamp)}</td>
+            {Object.keys(studentsByClass).sort().map(kelas => {
+              const studentsInClass = studentsByClass[kelas];
+              const studentNames = Object.keys(studentsInClass).sort();
+              const totalRecords = studentNames.reduce((sum, name) => sum + studentsInClass[name].scores.length, 0);
+
+              return (
+                <div key={kelas} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                  <div className="bg-slate-100 px-6 py-3 border-b border-slate-200">
+                    <h2 className="text-xl font-bold text-slate-800">Kelas {kelas}</h2>
+                    <p className="text-sm text-slate-600">{studentNames.length} murid | {totalRecords} rekod</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Nama Murid</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Cubaan</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Purata</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Terbaik</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Operasi Terkini</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Tarikh Terkini</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {studentNames.map(studentName => {
+                          const studentData = studentsInClass[studentName];
+                          const studentScores = studentData.scores;
+                          const avgPercentage = Math.round(studentScores.reduce((sum, s) => sum + s.percentage, 0) / studentScores.length);
+                          const bestPercentage = Math.max(...studentScores.map(s => s.percentage));
+                          const latestScore = studentScores.sort((a, b) => b.timestamp - a.timestamp)[0];
+                          const uniqueOps = Array.from(new Set(studentScores.map(s => s.operation)));
+
+                          return (
+                            <tr
+                              key={studentName}
+                              className="hover:bg-blue-50 cursor-pointer transition-colors"
+                              onClick={() => setSelectedStudent({ name: studentName, class: kelas })}
+                            >
+                              <td className="px-4 py-3 text-sm font-medium">
+                                <span className="text-blue-600 hover:text-blue-800 font-semibold">
+                                  {studentName}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-center text-slate-600">{studentScores.length}</td>
+                              <td className="px-4 py-3 text-center">
+                                <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${
+                                  avgPercentage > 50
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-red-100 text-red-800 border border-red-300'
+                                }`}>
+                                  {avgPercentage}%
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${
+                                  bestPercentage > 50
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-red-100 text-red-800 border border-red-300'
+                                }`}>
+                                  {bestPercentage}%
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-600">
+                                <div className="flex flex-wrap gap-1">
+                                  {uniqueOps.map(op => (
+                                    <span key={op} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{op}</span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-slate-500">{formatDate(latestScore.timestamp)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
