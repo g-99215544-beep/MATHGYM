@@ -284,6 +284,8 @@ const QuizScreen = ({
   const [lockedProblems, setLockedProblems] = useState<Set<string>>(new Set()); // Problems that have been checked
   const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({}); // Results for checked problems
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null); // For zoom view
+  const [correctionProblemId, setCorrectionProblemId] = useState<string | null>(null); // For correction mode
+  const [correctionValidation, setCorrectionValidation] = useState<ValidationResult | null>(null); // Correction check result
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const getDivisionStartColumn = useCallback((problem: MathProblem): number => {
@@ -395,8 +397,8 @@ const QuizScreen = ({
       const userAns = userAnswers[problemId];
       if (!prob || !userAns) return;
 
-      // Prevent editing locked problems
-      if (lockedProblems.has(problemId)) {
+      // Prevent editing locked problems (except during correction mode)
+      if (lockedProblems.has(problemId) && correctionProblemId !== problemId) {
         return;
       }
 
@@ -815,6 +817,58 @@ const QuizScreen = ({
     }
   };
 
+  // Start correction mode for a wrong problem
+  const handleStartCorrection = (problemId: string) => {
+    // Reset the user answers for this problem
+    setUserAnswers(prev => ({
+      ...prev,
+      [problemId]: {
+        answerDigits: {},
+        carryDigits: {},
+        borrowDigits: {},
+        remainderDigits: {},
+        slashedCols: {}
+      }
+    }));
+    setCorrectionValidation(null);
+    setSelectedProblemId(null);
+    setCorrectionProblemId(problemId);
+
+    // Set active cell to first cell
+    const prob = problems.find(p => p.id === problemId);
+    if (prob) {
+      if (op === 'divide') {
+        const startCol = getDivisionStartColumn(prob);
+        setActiveCell({ problemId, columnIndex: startCol, type: 'answer' });
+      } else {
+        setActiveCell({ problemId, columnIndex: 0, type: 'answer' });
+      }
+    }
+  };
+
+  // Check correction answer (does NOT change the saved score)
+  const handleCheckCorrection = () => {
+    if (!correctionProblemId) return;
+    const prob = problems.find(p => p.id === correctionProblemId);
+    if (!prob) return;
+
+    const validation = checkAnswer(prob, userAnswers[correctionProblemId]);
+    setCorrectionValidation(validation);
+    setActiveCell(null);
+    playSound(validation.isCorrect ? 'correct' : 'wrong');
+  };
+
+  // Exit correction mode back to overview
+  const handleExitCorrection = () => {
+    // Restore original validation result answers for overview display
+    if (correctionProblemId) {
+      // Keep the correction answers so overview shows the corrected work
+    }
+    setCorrectionProblemId(null);
+    setCorrectionValidation(null);
+    setActiveCell(null);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
@@ -855,7 +909,7 @@ const QuizScreen = ({
       </div>
 
       {/* Overview Grid Mode - when all problems checked */}
-      {allProblemsChecked && !selectedProblemId && (
+      {allProblemsChecked && !selectedProblemId && !correctionProblemId && (
         <div className="flex-1 overflow-y-auto p-4 pb-24">
           <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
             {problems.map((prob, idx) => {
@@ -870,17 +924,19 @@ const QuizScreen = ({
                       : 'bg-red-50 ring-2 ring-red-400'
                   }`}
                 >
-                  <div className="transform scale-50 origin-top-left w-[200%] pointer-events-none">
-                    <VerticalProblem
-                      problem={prob}
-                      userAnswers={userAnswers[prob.id]}
-                      activeCell={null}
-                      onCellClick={() => {}}
-                      isSubmitted={true}
-                      validationResult={validation}
-                    />
+                  <div className="h-[120px] overflow-hidden">
+                    <div className="transform scale-[0.45] origin-top-center">
+                      <VerticalProblem
+                        problem={prob}
+                        userAnswers={userAnswers[prob.id]}
+                        activeCell={null}
+                        onCellClick={() => {}}
+                        isSubmitted={true}
+                        validationResult={validation}
+                      />
+                    </div>
                   </div>
-                  <div className={`text-center font-bold text-sm mt-[-40px] ${
+                  <div className={`text-center font-bold text-sm ${
                     validation?.isCorrect ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {idx + 1}. {validation?.isCorrect ? 'Betul' : 'Salah'}
@@ -905,7 +961,7 @@ const QuizScreen = ({
       )}
 
       {/* Zoomed View - when a problem is selected */}
-      {allProblemsChecked && selectedProblemId && (
+      {allProblemsChecked && selectedProblemId && !correctionProblemId && (
         <div className="flex-1 overflow-y-auto p-4 pb-8">
           <div className="flex flex-col items-center">
             <button
@@ -942,8 +998,18 @@ const QuizScreen = ({
                 </div>
               );
             })()}
-            {/* Navigation buttons */}
-            <div className="flex gap-4 mt-4">
+            {/* Buttons */}
+            <div className="flex gap-4 mt-4 flex-wrap justify-center">
+              {/* Correction button - only for wrong answers */}
+              {!validationResults[selectedProblemId]?.isCorrect && (
+                <button
+                  onClick={() => handleStartCorrection(selectedProblemId)}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-full font-bold shadow-lg"
+                >
+                  Buat Pembetulan
+                </button>
+              )}
+              {/* Navigation buttons */}
               {problems.findIndex(p => p.id === selectedProblemId) > 0 && (
                 <button
                   onClick={() => {
@@ -970,6 +1036,75 @@ const QuizScreen = ({
           </div>
         </div>
       )}
+
+      {/* Correction Mode - redo a wrong problem */}
+      {correctionProblemId && (() => {
+        const prob = problems.find(p => p.id === correctionProblemId);
+        const idx = problems.findIndex(p => p.id === correctionProblemId);
+        if (!prob) return null;
+        const correctionComplete = isProblemComplete(prob, userAnswers[correctionProblemId]);
+        return (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+              <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 w-full max-w-sm text-center">
+                  <p className="text-amber-800 font-bold text-sm">Pembetulan Soalan {idx + 1}</p>
+                  <p className="text-amber-600 text-xs">Markah tidak akan berubah</p>
+                </div>
+                <div className={`transition-all duration-300 ${
+                  correctionValidation
+                    ? correctionValidation.isCorrect
+                      ? 'ring-4 ring-green-400 rounded-3xl'
+                      : 'ring-4 ring-red-400 rounded-3xl'
+                    : correctionComplete
+                      ? 'ring-4 ring-green-400 rounded-3xl'
+                      : ''
+                }`}>
+                  <VerticalProblem
+                    problem={prob}
+                    userAnswers={userAnswers[correctionProblemId]}
+                    activeCell={activeCell}
+                    onCellClick={(col, type) => !correctionValidation && handleCellClick(correctionProblemId, col, type)}
+                    onToggleSlash={(col) => !correctionValidation && handleToggleSlash(correctionProblemId, col)}
+                    isSubmitted={!!correctionValidation}
+                    validationResult={correctionValidation || undefined}
+                    warnCol={warnCol?.probId === correctionProblemId ? warnCol.col : null}
+                    blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[correctionProblemId])}
+                  />
+                </div>
+                {/* Semak button when complete but not checked yet */}
+                {correctionComplete && !correctionValidation && (
+                  <button
+                    onClick={handleCheckCorrection}
+                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
+                  >
+                    Semak Jawapan
+                  </button>
+                )}
+                {/* Result after checking */}
+                {correctionValidation && (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`px-5 py-2.5 rounded-full font-bold ${
+                      correctionValidation.isCorrect
+                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                        : 'bg-red-100 text-red-800 border-2 border-red-400'
+                    }`}>
+                      {correctionValidation.isCorrect ? 'Betul' : 'Salah'}
+                    </div>
+                    <button
+                      onClick={handleExitCorrection}
+                      className="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"
+                    >
+                      Kembali ke Overview
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {!correctionValidation && <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />}
+          </>
+        );
+      })()}
 
       {/* Normal Quiz Mode - when not all checked */}
       {!allProblemsChecked && (
