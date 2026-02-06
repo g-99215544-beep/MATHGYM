@@ -786,6 +786,31 @@ const QuizScreen = ({
     }
   }, [allProblemsChecked, scoreSaved]);
 
+  // Handle "Semak dan Hantar" - check all problems (even incomplete) and submit to Firebase
+  const handleSubmitAll = () => {
+    const newValidations: Record<string, ValidationResult> = {};
+    const newLocked = new Set<string>();
+    let correctCount = 0;
+
+    problems.forEach(prob => {
+      const validation = checkAnswer(prob, userAnswers[prob.id]);
+      newValidations[prob.id] = validation;
+      newLocked.add(prob.id);
+      if (validation.isCorrect) correctCount++;
+    });
+
+    setValidationResults(newValidations);
+    setLockedProblems(newLocked);
+    setActiveCell(null);
+
+    playSound(correctCount === problems.length ? 'correct' : 'wrong');
+
+    setScoreSaved(true);
+
+    const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: newValidations[p.id] }));
+    onFinish(res, student);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-50">
       <div className="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-gray-100">
@@ -1002,6 +1027,16 @@ const QuizScreen = ({
                     </div>
                     );
                 })}
+
+                {/* Semak dan Hantar button - always at the end of questions */}
+                <div className="mt-8 mb-4 w-full flex justify-center">
+                  <button
+                    onClick={handleSubmitAll}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95"
+                  >
+                    Semak dan Hantar
+                  </button>
+                </div>
             </div>
           </div>
           <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />

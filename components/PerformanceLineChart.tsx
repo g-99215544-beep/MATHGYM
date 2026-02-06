@@ -51,7 +51,7 @@ const PerformanceLineChart: React.FC<PerformanceLineChartProps> = ({ data, opera
 
   // Calculate trend (increasing/decreasing)
   const trend = useMemo(() => {
-    if (sortedData.length < 2) return 'neutral';
+    if (sortedData.length < 2) return 'stable';
     const first = sortedData[0].percentage;
     const last = sortedData[sortedData.length - 1].percentage;
     const difference = last - first;
