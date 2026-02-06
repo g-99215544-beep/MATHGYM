@@ -76,34 +76,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-slate-800 text-white p-6 shadow-lg z-10 flex-shrink-0">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
-            <p className="text-slate-300 text-sm">MathGym - Laporan Prestasi Murid</p>
+      <div className="bg-slate-800 text-white p-4 shadow-lg z-10 flex-shrink-0">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <h1 className="text-xl font-bold">Admin Dashboard</h1>
+              <p className="text-slate-300 text-xs">MathGym - Laporan Prestasi Murid</p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-bold transition-all text-sm"
+            >
+              Logout
+            </button>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               onClick={fetchScores}
               disabled={loading}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-6 py-2 rounded-lg font-bold transition-all flex items-center gap-2"
+              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-3 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
             </button>
             <button
               onClick={onManageAssignments}
-              className="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg font-bold transition-all"
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-lg font-bold transition-all text-sm"
             >
               Urus Assignment
-            </button>
-            <button
-              onClick={onLogout}
-              className="bg-red-500 hover:bg-red-600 px-6 py-2 rounded-lg font-bold transition-all"
-            >
-              Logout
             </button>
           </div>
         </div>
