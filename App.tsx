@@ -924,8 +924,8 @@ const QuizScreen = ({
                       : 'bg-red-50 ring-2 ring-red-400'
                   }`}
                 >
-                  <div className="h-[120px] overflow-hidden">
-                    <div className="transform scale-[0.45] origin-top-center">
+                  <div className="h-[130px] overflow-hidden">
+                    <div className="transform scale-50 origin-top-left w-[200%]">
                       <VerticalProblem
                         problem={prob}
                         userAnswers={userAnswers[prob.id]}
