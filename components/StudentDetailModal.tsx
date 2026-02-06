@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ScoreRecord } from '../services/firebase';
+import { ScoreRecord, deleteScore } from '../services/firebase';
 import PerformanceLineChart from './PerformanceLineChart';
 
 interface StudentDetailModalProps {
@@ -7,15 +7,19 @@ interface StudentDetailModalProps {
   studentClass: string;
   scores: ScoreRecord[];
   onClose: () => void;
+  onScoreDeleted: (scoreId: string) => void;
 }
 
 const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   studentName,
   studentClass,
   scores,
-  onClose
+  onClose,
+  onScoreDeleted
 }) => {
   const [filterOperation, setFilterOperation] = useState<string>('');
+  const [deletingScoreId, setDeletingScoreId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Get unique operations for this student
   const operations = useMemo(() => {
@@ -70,6 +74,16 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       day: '2-digit',
       month: '2-digit'
     });
+  };
+
+  const handleDeleteScore = async (scoreId: string) => {
+    setDeleting(true);
+    const success = await deleteScore(scoreId);
+    if (success) {
+      onScoreDeleted(scoreId);
+    }
+    setDeleting(false);
+    setDeletingScoreId(null);
   };
 
   // Prepare chart data
@@ -181,11 +195,12 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Betul</th>
                   <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Salah</th>
                   <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Markah</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Padam</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredScores.map((score, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                  <tr key={score.id || idx} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-slate-600">{formatDate(score.timestamp)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{score.tahun}</td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-700">{score.operation}</td>
@@ -201,12 +216,60 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         {score.percentage}%
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {score.id && (
+                        <button
+                          onClick={() => setDeletingScoreId(score.id!)}
+                          className="bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 p-1.5 rounded-lg transition-all"
+                          title="Padam rekod ini"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {deletingScoreId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setDeletingScoreId(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="text-center">
+                <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Padam Rekod Ini?</h3>
+                <p className="text-sm text-slate-600 mb-6">
+                  Rekod latihan ini akan dipadam. Tindakan ini tidak boleh dibatalkan.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeletingScoreId(null)}
+                    disabled={deleting}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-bold transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={() => handleDeleteScore(deletingScoreId)}
+                    disabled={deleting}
+                    className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white py-2.5 rounded-xl font-bold transition-all"
+                  >
+                    {deleting ? 'Memadam...' : 'Padam'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

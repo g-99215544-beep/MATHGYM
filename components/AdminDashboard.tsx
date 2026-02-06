@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { loadAllScores, ScoreRecord, deleteStudentScores } from '../services/firebase';
+import { loadAllScores, ScoreRecord } from '../services/firebase';
 import StudentDetailModal from './StudentDetailModal';
 
 interface AdminDashboardProps {
@@ -13,7 +13,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   const [filterClass, setFilterClass] = useState<string>('');
   const [filterOperation, setFilterOperation] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<{ name: string; class: string } | null>(null);
-  const [deletingStudent, setDeletingStudent] = useState<{ name: string; class: string } | null>(null);
 
   const fetchScores = async () => {
     setLoading(true);
@@ -59,12 +58,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
     return studentSet.size;
   }, [filteredScores]);
 
-  const handleDeleteStudent = async (name: string, kelas: string) => {
-    const success = await deleteStudentScores(name, kelas);
-    if (success) {
-      setScores(prev => prev.filter(s => !(s.studentName === name && s.kelas === kelas)));
-    }
-    setDeletingStudent(null);
+  const handleScoreDeleted = (scoreId: string) => {
+    setScores(prev => prev.filter(s => s.id !== scoreId));
   };
 
   const formatDate = (timestamp: number) => {
@@ -208,7 +203,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                           <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Terbaik</th>
                           <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Operasi Terkini</th>
                           <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Tarikh Terkini</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Tindakan</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -258,20 +252,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-xs text-slate-500">{formatDate(latestScore.timestamp)}</td>
-                              <td className="px-4 py-3 text-center">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeletingStudent({ name: studentName, class: kelas });
-                                  }}
-                                  className="bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 p-2 rounded-lg transition-all"
-                                  title="Padam data murid"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </td>
                             </tr>
                           );
                         })}
@@ -294,40 +274,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
           studentClass={selectedStudent.class}
           scores={scores.filter(s => s.studentName === selectedStudent.name && s.kelas === selectedStudent.class)}
           onClose={() => setSelectedStudent(null)}
+          onScoreDeleted={handleScoreDeleted}
         />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deletingStudent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDeletingStudent(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="text-center">
-              <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Padam Data Murid?</h3>
-              <p className="text-sm text-slate-600 mb-6">
-                Semua rekod markah untuk <span className="font-bold">{deletingStudent.name}</span> (Kelas {deletingStudent.class}) akan dipadam. Tindakan ini tidak boleh dibatalkan.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeletingStudent(null)}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl font-bold transition-all"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={() => handleDeleteStudent(deletingStudent.name, deletingStudent.class)}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-bold transition-all"
-                >
-                  Padam
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
