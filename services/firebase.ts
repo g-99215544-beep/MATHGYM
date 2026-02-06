@@ -145,31 +145,14 @@ export const loadAllScores = async (): Promise<ScoreRecord[]> => {
   }
 };
 
-// Delete all scores for a specific student
-export const deleteStudentScores = async (studentName: string, kelas: string): Promise<boolean> => {
+// Delete a single score record by ID
+export const deleteScore = async (scoreId: string): Promise<boolean> => {
   try {
-    const scoresRef = ref(scoreDb, 'scores');
-    const snapshot = await get(scoresRef);
-
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      const updates: Record<string, null> = {};
-
-      Object.keys(data).forEach(key => {
-        if (data[key].studentName === studentName && data[key].kelas === kelas) {
-          updates[`scores/${key}`] = null;
-        }
-      });
-
-      if (Object.keys(updates).length > 0) {
-        const rootRef = ref(scoreDb);
-        await update(rootRef, updates);
-      }
-    }
-
+    const scoreRef = ref(scoreDb, `scores/${scoreId}`);
+    await remove(scoreRef);
     return true;
   } catch (error) {
-    console.error("Error deleting student scores:", error);
+    console.error("Error deleting score:", error);
     return false;
   }
 };
