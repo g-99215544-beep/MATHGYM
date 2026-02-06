@@ -42,6 +42,7 @@ export interface Student {
 }
 
 export interface ScoreRecord {
+  id?: string;
   studentId: string;
   studentName: string;
   kelas: string;
@@ -141,6 +142,35 @@ export const loadAllScores = async (): Promise<ScoreRecord[]> => {
   } catch (error) {
     console.error("Error loading scores:", error);
     return [];
+  }
+};
+
+// Delete all scores for a specific student
+export const deleteStudentScores = async (studentName: string, kelas: string): Promise<boolean> => {
+  try {
+    const scoresRef = ref(scoreDb, 'scores');
+    const snapshot = await get(scoresRef);
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const updates: Record<string, null> = {};
+
+      Object.keys(data).forEach(key => {
+        if (data[key].studentName === studentName && data[key].kelas === kelas) {
+          updates[`scores/${key}`] = null;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        const rootRef = ref(scoreDb);
+        await update(rootRef, updates);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting student scores:", error);
+    return false;
   }
 };
 
