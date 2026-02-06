@@ -140,9 +140,9 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-indigo-600 text-white p-6 shadow-lg">
+      <div className="bg-indigo-600 text-white p-6 shadow-lg flex-shrink-0">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold mb-1">Pengurusan Assignment</h1>
@@ -157,8 +157,8 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto p-6">
+      {/* Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-6"><div className="max-w-7xl mx-auto">
         {/* View Toggle */}
         <div className="flex gap-4 mb-6">
           <button
@@ -454,7 +454,7 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
             </div>
           </div>
         )}
-      </div>
+      </div></div>
     </div>
   );
 };

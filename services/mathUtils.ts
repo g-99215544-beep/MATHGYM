@@ -233,9 +233,11 @@ export const checkAnswer = (problem: MathProblem, userAnswer: { answerDigits: Re
     const userAns = userAnswer.answerDigits[idx] || '';
     
     let isAnswerCorrect = false;
+    // Check if this is an optional leading zero column in division
+    const isDivisionLeadingZero = problem.operation === 'divide' && col.correctSumDigit === 0 && idx === problem.columns.length - 1;
     if (problem.operation === 'divide') {
         // Division: If leading zero (at the highest index), it's optional.
-        if (col.correctSumDigit === 0 && idx === problem.columns.length - 1 && (userAns === '' || userAns === '0')) {
+        if (isDivisionLeadingZero && (userAns === '' || userAns === '0')) {
              isAnswerCorrect = true;
         } else {
              isAnswerCorrect = userAns === col.correctSumDigit.toString();
@@ -254,8 +256,12 @@ export const checkAnswer = (problem: MathProblem, userAnswer: { answerDigits: Re
         // In this flow, we write the remainder AFTER the calculation, next to the digit.
         // col.correctCarryOut is the remainder passed to the NEXT step.
         // Note: For the last digit (index 0), it's the final remainder.
-        
-        if (col.correctCarryOut > 0) {
+
+        // If this is a leading zero column (first digit < divisor, user groups digits),
+        // the remainder is optional since the user mentally groups it with the next digit
+        if (isDivisionLeadingZero) {
+            isRemainderCorrect = true; // Always treat as correct (optional)
+        } else if (col.correctCarryOut > 0) {
             isRemainderCorrect = userRem === col.correctCarryOut.toString();
         } else {
             // If remainder is 0, user shouldn't write anything, or write 0.

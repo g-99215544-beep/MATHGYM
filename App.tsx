@@ -112,7 +112,7 @@ const HomeScreen = ({ onStart, onAdminClick, onStartAssignment }: {
   ];
 
   return (
-    <div className={`min-h-screen bg-gradient-to-b ${themes[op]} flex flex-col items-center justify-center p-6 text-white transition-colors duration-500`}>
+    <div className={`h-screen overflow-y-auto bg-gradient-to-b ${themes[op]} flex flex-col items-center justify-center p-6 text-white transition-colors duration-500`}>
       {/* Admin Button */}
       <button
         onClick={onAdminClick}
@@ -263,6 +263,7 @@ const QuizScreen = ({
   student,
   includeBorrowing,
   onFinish,
+  onSaveScore,
   onHome,
   assignment
 }: {
@@ -272,6 +273,7 @@ const QuizScreen = ({
   student?: Student,
   includeBorrowing?: boolean,
   onFinish: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void,
+  onSaveScore: (results: { problem: MathProblem, userAnswer: UserAnswerState, validation: ValidationResult }[], student?: Student) => void,
   onHome: () => void,
   assignment?: Assignment | null
 }) => {
@@ -279,7 +281,6 @@ const QuizScreen = ({
   const [userAnswers, setUserAnswers] = useState<Record<string, UserAnswerState>>({});
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [warnCol, setWarnCol] = useState<{probId: string, col: number, type?: 'slash' | 'carry' | 'borrow'} | null>(null);
-  const [sifirOpen, setSifirOpen] = useState<Record<string, boolean>>({});
   const [lockedProblems, setLockedProblems] = useState<Set<string>>(new Set()); // Problems that have been checked
   const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({}); // Results for checked problems
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null); // For zoom view
@@ -299,7 +300,6 @@ const QuizScreen = ({
     const generated = Array.from({ length: count }).map((_, i) => generateProblemByDifficulty(difficulty, i, op, includeBorrowing));
     setProblems(generated);
     const initialAnswers: Record<string, UserAnswerState> = {};
-    const initialSifir: Record<string, boolean> = {};
     generated.forEach(p => {
       initialAnswers[p.id] = {
           answerDigits: {},
@@ -308,10 +308,8 @@ const QuizScreen = ({
           remainderDigits: {},
           slashedCols: {}
       };
-      initialSifir[p.id] = false;
     });
     setUserAnswers(initialAnswers);
-    setSifirOpen(initialSifir);
 
     if (generated.length > 0) {
       const firstProb = generated[0];
@@ -325,10 +323,6 @@ const QuizScreen = ({
       }
     }
   }, [difficulty, count, op, includeBorrowing, getDivisionStartColumn]);
-
-  const toggleSifir = (probId: string) => {
-      setSifirOpen(prev => ({ ...prev, [probId]: !prev[probId] }));
-  };
 
   const checkSubtractionReady = (problem: MathProblem, colIndex: number, userAns: UserAnswerState): { ready: boolean, redirect?: ActiveCell } => {
       const col = problem.columns[colIndex];
@@ -758,6 +752,9 @@ const QuizScreen = ({
     // Play sound based on overall result
     playSound(correctCount === problems.length ? 'correct' : 'wrong');
 
+    // Mark score as saved (will be saved by useEffect or here)
+    setScoreSaved(true);
+
     // Save score to Firebase if student is selected
     if (student) {
       const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: newValidations[p.id] }));
@@ -778,6 +775,16 @@ const QuizScreen = ({
   const allProblemsChecked = problems.length > 0 && lockedProblems.size === problems.length;
   // Calculate score
   const totalCorrect = Object.values(validationResults).filter(v => v.isCorrect).length;
+
+  // Auto-save score when all problems are checked individually
+  const [scoreSaved, setScoreSaved] = useState(false);
+  useEffect(() => {
+    if (allProblemsChecked && !scoreSaved && student) {
+      setScoreSaved(true);
+      const res = problems.map(p => ({ problem: p, userAnswer: userAnswers[p.id], validation: validationResults[p.id] }));
+      onSaveScore(res, student);
+    }
+  }, [allProblemsChecked, scoreSaved]);
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -955,8 +962,6 @@ const QuizScreen = ({
                                 isSubmitted={isLocked}
                                 validationResult={validation}
                                 warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
-                                showSifir={sifirOpen[prob.id]}
-                                onToggleSifir={op !== 'add' && op !== 'subtract' ? () => toggleSifir(prob.id) : undefined}
                                 blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[prob.id])}
                             />
                         </div>
@@ -1015,7 +1020,7 @@ const ResultScreen = ({ results, onRestart }: { results: { problem: MathProblem,
   else if (percentage >= 50) { message = "Bagus!"; emoji = "👍"; }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
       <div className="bg-slate-800 p-8 text-white rounded-b-[3rem] shadow-xl text-center z-10 sticky top-0">
         <div className="text-6xl mb-2">{emoji}</div>
         <h2 className="text-3xl font-bold mb-1">{message}</h2>
@@ -1061,6 +1066,41 @@ const App = () => {
     setScreen('quiz');
   };
 
+  // Save score without navigating to result screen (used for individual check mode)
+  const saveScoreOnly = async (res: any[], student?: Student) => {
+    if (!student) return;
+
+    // Mark assignment as completed if this was an assignment quiz
+    if (currentAssignment) {
+      await completeAssignment(currentAssignment.id, student.id);
+    }
+
+    const totalCorrect = res.filter((r: any) => r.validation.isCorrect).length;
+    const totalWrong = res.length - totalCorrect;
+    const percentage = Math.round((totalCorrect / res.length) * 100);
+
+    const opLabels: Record<string, string> = { add: 'Tambah', subtract: 'Tolak', multiply: 'Darab', divide: 'Bahagi' };
+    const difficultyLabels: Record<string, string> = { easy: 'Mudah', medium: 'Sederhana', pro: 'Pro' };
+    const tahun = parseInt(student.kelas.replace(/[^0-9]/g, '')) || 1;
+
+    const scoreRecord = {
+      studentId: student.id,
+      studentName: student.nama,
+      kelas: student.kelas,
+      tahun,
+      difficulty: difficultyLabels[config.difficulty],
+      operation: opLabels[config.op],
+      totalQuestions: res.length,
+      correctAnswers: totalCorrect,
+      wrongAnswers: totalWrong,
+      percentage,
+      timestamp: Date.now(),
+      details: res.map((r: any) => ({ problemId: r.problem.id, isCorrect: r.validation.isCorrect }))
+    };
+
+    await saveScore(scoreRecord);
+  };
+
   const finishQuiz = async (res: any[], student?: Student) => {
     setResults(res);
 
@@ -1088,10 +1128,14 @@ const App = () => {
         pro: 'Pro'
       };
 
+      // Extract year from class name (e.g., "1A" -> 1, "2B" -> 2)
+      const tahun = parseInt(student.kelas.replace(/[^0-9]/g, '')) || 1;
+
       const scoreRecord = {
         studentId: student.id,
         studentName: student.nama,
         kelas: student.kelas,
+        tahun: tahun,
         difficulty: difficultyLabels[config.difficulty],
         operation: opLabels[config.op],
         totalQuestions: res.length,
@@ -1122,7 +1166,7 @@ const App = () => {
   return (
     <>
       {screen === 'home' && <HomeScreen onStart={startQuiz} onAdminClick={goToAdminLogin} onStartAssignment={startAssignmentQuiz} />}
-      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} includeBorrowing={config.includeBorrowing} onFinish={finishQuiz} onHome={restart} assignment={currentAssignment} />}
+      {screen === 'quiz' && <QuizScreen difficulty={config.difficulty} count={config.count} op={config.op} student={config.student} includeBorrowing={config.includeBorrowing} onFinish={finishQuiz} onSaveScore={saveScoreOnly} onHome={restart} assignment={currentAssignment} />}
       {screen === 'result' && <ResultScreen results={results} onRestart={restart} />}
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} onManageAssignments={goToAdminAssignment} />}

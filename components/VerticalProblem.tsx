@@ -16,8 +16,6 @@ interface VerticalProblemProps {
   validationResult?: ValidationResult;
   isSubmitted: boolean;
   warnCol?: number | null;
-  showSifir?: boolean;
-  onToggleSifir?: () => void;
   blockedAnswerColumns?: Set<number>;
 }
 
@@ -30,8 +28,6 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
   validationResult,
   isSubmitted,
   warnCol,
-  showSifir,
-  onToggleSifir,
   blockedAnswerColumns = new Set()
 }) => {
   const isDivision = problem.operation === 'divide';
@@ -188,23 +184,6 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
       );
   };
 
-  const SifirPanel = () => {
-    if (!showSifir) return null;
-    const sifirNum = problem.num2;
-    return (
-        <div className="bg-indigo-50 border-l-2 border-indigo-100 p-4 rounded-r-2xl min-w-[140px] flex flex-col justify-center shadow-inner z-10 sticky right-0 h-full">
-             <h4 className="text-indigo-600 font-bold text-center mb-2 border-b border-indigo-200 pb-1">Sifir {sifirNum}</h4>
-             <div className="space-y-1">
-                {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="text-center text-sm font-medium text-slate-600">
-                        {i + 1} × {sifirNum} = <span className="text-indigo-700 font-bold">{(i + 1) * sifirNum}</span>
-                    </div>
-                ))}
-             </div>
-        </div>
-    );
-  };
-
   const VerticalLayout = () => {
     if (isDivision) {
         return (
@@ -296,12 +275,6 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
                      );
                  })}
              </div>
-             
-             {/* Spacer */}
-             {showSifir && <div className="w-4 flex-shrink-0"></div>}
-             
-             {/* Sifir Panel */}
-             {showSifir && <SifirPanel />}
          </div>
        );
    }
@@ -371,14 +344,6 @@ const VerticalProblem: React.FC<VerticalProblemProps> = ({
              <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm pointer-events-auto">
                 {parseInt(problem.id) + 1}
              </div>
-             {onToggleSifir && (
-                 <button
-                    onClick={onToggleSifir}
-                    className={`pointer-events-auto px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${showSifir ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-600 hover:bg-purple-200'}`}
-                 >
-                    {showSifir ? 'Tutup Sifir' : 'Sifir'}
-                 </button>
-             )}
         </div>
 
         <div className="flex flex-row">
