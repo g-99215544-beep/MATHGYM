@@ -18,6 +18,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   onScoreDeleted
 }) => {
   const [filterOperation, setFilterOperation] = useState<string>('');
+  const [filterRegrouping, setFilterRegrouping] = useState<string>(''); // '' | 'yes' | 'no'
   const [deletingScoreId, setDeletingScoreId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -26,11 +27,30 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     return Array.from(new Set(scores.map(s => s.operation))).sort();
   }, [scores]);
 
-  // Filter scores by operation
+  // Check if selected operation supports regrouping sub-filter
+  const showRegroupingFilter = filterOperation === 'Tambah' || filterOperation === 'Tolak';
+
+  // Reset regrouping filter when operation changes
+  const handleOperationChange = (value: string) => {
+    setFilterOperation(value);
+    setFilterRegrouping('');
+  };
+
+  // Filter scores by operation and regrouping
   const filteredScores = useMemo(() => {
-    if (!filterOperation) return scores;
-    return scores.filter(s => s.operation === filterOperation);
-  }, [scores, filterOperation]);
+    let result = scores;
+    if (filterOperation) {
+      result = result.filter(s => s.operation === filterOperation);
+    }
+    if (filterRegrouping && (filterOperation === 'Tambah' || filterOperation === 'Tolak')) {
+      if (filterRegrouping === 'yes') {
+        result = result.filter(s => s.includeRegrouping === true);
+      } else if (filterRegrouping === 'no') {
+        result = result.filter(s => s.includeRegrouping === false);
+      }
+    }
+    return result;
+  }, [scores, filterOperation, filterRegrouping]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -165,17 +185,35 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
         {/* Filter */}
         <div className="bg-white border-b border-slate-200 p-4">
-          <label className="block text-xs font-semibold text-slate-600 mb-2">FILTER KEMAHIRAN</label>
-          <select
-            value={filterOperation}
-            onChange={(e) => setFilterOperation(e.target.value)}
-            className="w-full md:w-64 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="">Semua Kemahiran</option>
-            {operations.map(op => (
-              <option key={op} value={op}>{op}</option>
-            ))}
-          </select>
+          <div className="flex gap-4 flex-wrap">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">FILTER KEMAHIRAN</label>
+              <select
+                value={filterOperation}
+                onChange={(e) => handleOperationChange(e.target.value)}
+                className="w-full md:w-64 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Semua Kemahiran</option>
+                {operations.map(op => (
+                  <option key={op} value={op}>{op}</option>
+                ))}
+              </select>
+            </div>
+            {showRegroupingFilter && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">PENGUMPULAN SEMULA</label>
+                <select
+                  value={filterRegrouping}
+                  onChange={(e) => setFilterRegrouping(e.target.value)}
+                  className="w-full md:w-64 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Semua</option>
+                  <option value="yes">Dengan Pengumpulan Semula</option>
+                  <option value="no">Tanpa Pengumpulan Semula</option>
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Score History */}
@@ -203,7 +241,18 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <tr key={score.id || idx} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-sm text-slate-600">{formatDate(score.timestamp)}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">{score.tahun}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-700">{score.operation}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                      {score.operation}
+                      {(score.operation === 'Tambah' || score.operation === 'Tolak') && score.includeRegrouping !== undefined && (
+                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                          score.includeRegrouping
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {score.includeRegrouping ? 'P.Semula' : 'Tanpa P.S'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-center text-slate-600">{score.totalQuestions}</td>
                     <td className="px-4 py-3 text-sm text-center font-semibold text-green-600">{score.correctAnswers}</td>
                     <td className="px-4 py-3 text-sm text-center font-semibold text-red-600">{score.wrongAnswers}</td>

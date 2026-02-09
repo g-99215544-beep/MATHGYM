@@ -75,8 +75,8 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
       completedBy: ['__placeholder__']
     };
 
-    // Only include borrowing field for subtraction
-    if (operation === 'subtract') {
+    // Include regrouping field for addition and subtraction
+    if (operation === 'add' || operation === 'subtract') {
       newAssignment.includeBorrowing = includeBorrowing;
     }
 
@@ -221,6 +221,15 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
                           <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-semibold">
                             {assignment.questionCount} soalan
                           </span>
+                          {(assignment.operation === 'add' || assignment.operation === 'subtract') && assignment.includeBorrowing !== undefined && (
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              assignment.includeBorrowing
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {assignment.includeBorrowing ? 'Dengan P. Semula' : 'Tanpa P. Semula'}
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-slate-600">
                           <div>Dicipta: {formatDate(assignment.createdAt)}</div>
@@ -410,10 +419,12 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Borrowing Option - only for subtraction */}
-              {operation === 'subtract' && (
+              {/* Regrouping Option - for addition and subtraction */}
+              {(operation === 'add' || operation === 'subtract') && (
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">PENGUMPULAN SEMULA (PINJAM)</label>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">
+                    {operation === 'subtract' ? 'PENGUMPULAN SEMULA (PINJAM)' : 'PENGUMPULAN SEMULA (MENGUMPUL)'}
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setIncludeBorrowing(true)}
@@ -423,7 +434,7 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      Ya (Dengan pinjam)
+                      {operation === 'subtract' ? 'Ya (Dengan pinjam)' : 'Ya (Dengan mengumpul)'}
                     </button>
                     <button
                       onClick={() => setIncludeBorrowing(false)}
@@ -433,7 +444,7 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      Tidak (Tanpa pinjam)
+                      {operation === 'subtract' ? 'Tidak (Tanpa pinjam)' : 'Tidak (Tanpa mengumpul)'}
                     </button>
                   </div>
                 </div>
