@@ -199,24 +199,26 @@ const HomeScreen = ({ onStart, onAdminClick, onStartAssignment }: {
               ))}
             </div>
           </div>
-          {/* Borrowing Option - only show for subtraction */}
-          {op === 'subtract' && (
+          {/* Regrouping Option - show for addition and subtraction */}
+          {(op === 'add' || op === 'subtract') && (
             <div>
-              <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">Pengumpulan Semula (Pinjam)</label>
+              <label className="block text-sm font-semibold mb-2 uppercase tracking-wider text-white/80">
+                {op === 'subtract' ? 'Pengumpulan Semula (Pinjam)' : 'Pengumpulan Semula (Mengumpul)'}
+              </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setIncludeBorrowing(true)}
                   className={`py-3 rounded-xl font-bold transition-all shadow-lg ${includeBorrowing ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}
                 >
                   <div className="text-lg">Ya</div>
-                  <div className="text-xs opacity-70">Dengan pinjam</div>
+                  <div className="text-xs opacity-70">{op === 'subtract' ? 'Dengan pinjam' : 'Dengan mengumpul'}</div>
                 </button>
                 <button
                   onClick={() => setIncludeBorrowing(false)}
                   className={`py-3 rounded-xl font-bold transition-all shadow-lg ${!includeBorrowing ? 'bg-white text-slate-800 scale-105 ring-4 ring-white/30' : 'bg-white/20 hover:bg-white/30 text-white'}`}
                 >
                   <div className="text-lg">Tidak</div>
-                  <div className="text-xs opacity-70">Tanpa pinjam</div>
+                  <div className="text-xs opacity-70">{op === 'subtract' ? 'Tanpa pinjam' : 'Tanpa mengumpul'}</div>
                 </button>
               </div>
             </div>
@@ -230,7 +232,7 @@ const HomeScreen = ({ onStart, onAdminClick, onStartAssignment }: {
             </div>
           </div>
           <button
-            onClick={() => onStart(difficulty, count, op, selectedStudent, op === 'subtract' ? includeBorrowing : undefined)}
+            onClick={() => onStart(difficulty, count, op, selectedStudent, (op === 'add' || op === 'subtract') ? includeBorrowing : undefined)}
             disabled={pendingAssignments.length > 0}
             className="w-full bg-yellow-400 hover:bg-yellow-300 disabled:bg-slate-300 disabled:cursor-not-allowed text-yellow-900 text-2xl font-bold py-4 rounded-2xl shadow-[0_4px_0_rgb(161,98,7)] active:shadow-none active:translate-y-1 transition-all mt-4"
           >
@@ -1269,7 +1271,7 @@ const App = () => {
     const difficultyLabels: Record<string, string> = { easy: 'Mudah', medium: 'Sederhana', pro: 'Pro' };
     const tahun = parseInt(student.kelas.replace(/[^0-9]/g, '')) || 1;
 
-    const scoreRecord = {
+    const scoreRecord: any = {
       studentId: student.id,
       studentName: student.nama,
       kelas: student.kelas,
@@ -1283,6 +1285,11 @@ const App = () => {
       timestamp: Date.now(),
       details: res.map((r: any) => ({ problemId: r.problem.id, isCorrect: r.validation.isCorrect }))
     };
+
+    // Save regrouping flag for add/subtract operations
+    if (config.op === 'add' || config.op === 'subtract') {
+      scoreRecord.includeRegrouping = config.includeBorrowing !== false;
+    }
 
     await saveScore(scoreRecord);
   };
@@ -1317,7 +1324,7 @@ const App = () => {
       // Extract year from class name (e.g., "1A" -> 1, "2B" -> 2)
       const tahun = parseInt(student.kelas.replace(/[^0-9]/g, '')) || 1;
 
-      const scoreRecord = {
+      const scoreRecord: any = {
         studentId: student.id,
         studentName: student.nama,
         kelas: student.kelas,
@@ -1334,6 +1341,11 @@ const App = () => {
           isCorrect: r.validation.isCorrect
         }))
       };
+
+      // Save regrouping flag for add/subtract operations
+      if (config.op === 'add' || config.op === 'subtract') {
+        scoreRecord.includeRegrouping = config.includeBorrowing !== false;
+      }
 
       await saveScore(scoreRecord);
     }

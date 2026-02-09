@@ -9,6 +9,41 @@ export const generateProblem = (year: YearLevel, index: number, operation: Opera
   return generateProblemByDifficulty(difficulty, index, operation);
 };
 
+// Helper function to check if addition requires carrying
+const requiresCarrying = (num1: number, num2: number): boolean => {
+  const str1 = num1.toString().split('').reverse();
+  const str2 = num2.toString().split('').reverse();
+  const maxLen = Math.max(str1.length, str2.length);
+
+  let carry = 0;
+  for (let i = 0; i < maxLen; i++) {
+    const d1 = parseInt(str1[i] || '0');
+    const d2 = parseInt(str2[i] || '0');
+    const sum = d1 + d2 + carry;
+    if (sum >= 10) return true;
+    carry = Math.floor(sum / 10);
+  }
+  return false;
+};
+
+// Generate addition problem without carrying
+const generateNoCarryAddition = (min: number, max: number): { num1: number, num2: number } => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const num1 = Math.floor(Math.random() * (max - min)) + min;
+    const num2 = Math.floor(Math.random() * (max - min)) + min;
+
+    if (!requiresCarrying(num1, num2)) {
+      return { num1, num2 };
+    }
+  }
+
+  // Fallback: generate safe pair where each digit sums to < 10
+  const numDigits = min.toString().length;
+  const num1 = parseInt(String(4).repeat(numDigits));
+  const num2 = parseInt(String(3).repeat(numDigits));
+  return { num1: Math.max(num1, min), num2: Math.max(num2, min) };
+};
+
 // Helper function to check if subtraction requires borrowing
 const requiresBorrowing = (num1: number, num2: number): boolean => {
   const str1 = num1.toString().split('').reverse();
@@ -103,8 +138,16 @@ export const generateProblemByDifficulty = (difficulty: DifficultyLevel, index: 
 
   // Adjust specific numbers based on operation
   if (operation === 'add') {
-     num1 = Math.floor(Math.random() * (max - min)) + min;
-     num2 = Math.floor(Math.random() * (max - min)) + min;
+     if (includeBorrowing === false) {
+       // Generate problem without carrying (pengumpulan semula)
+       const result = generateNoCarryAddition(min, max);
+       num1 = result.num1;
+       num2 = result.num2;
+     } else {
+       // Default: allow carrying - generate random numbers
+       num1 = Math.floor(Math.random() * (max - min)) + min;
+       num2 = Math.floor(Math.random() * (max - min)) + min;
+     }
   } else if (operation === 'subtract') {
      if (includeBorrowing === false) {
        // Generate problem without borrowing

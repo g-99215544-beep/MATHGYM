@@ -12,6 +12,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   const [loading, setLoading] = useState(true);
   const [filterClass, setFilterClass] = useState<string>('');
   const [filterOperation, setFilterOperation] = useState<string>('');
+  const [filterRegrouping, setFilterRegrouping] = useState<string>(''); // '' | 'yes' | 'no'
   const [selectedStudent, setSelectedStudent] = useState<{ name: string; class: string } | null>(null);
 
   const fetchScores = async () => {
@@ -29,10 +30,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   const classes = Array.from(new Set(scores.map(s => s.kelas))).sort();
   const operations = Array.from(new Set(scores.map(s => s.operation))).sort();
 
+  // Reset regrouping filter when operation changes
+  const handleOperationChange = (value: string) => {
+    setFilterOperation(value);
+    setFilterRegrouping('');
+  };
+
+  // Check if selected operation supports regrouping sub-filter
+  const showRegroupingFilter = filterOperation === 'Tambah' || filterOperation === 'Tolak';
+
   // Filter scores
   const filteredScores = scores.filter(score => {
     if (filterClass && score.kelas !== filterClass) return false;
     if (filterOperation && score.operation !== filterOperation) return false;
+    if (filterRegrouping && (filterOperation === 'Tambah' || filterOperation === 'Tolak')) {
+      if (filterRegrouping === 'yes' && score.includeRegrouping !== true) return false;
+      if (filterRegrouping === 'no' && score.includeRegrouping !== false) return false;
+    }
     return true;
   });
 
@@ -142,8 +156,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
 
       {/* Filters */}
       <div className="bg-white border-b border-slate-200 p-4">
-        <div className="max-w-7xl mx-auto flex gap-4">
-          <div className="flex-1">
+        <div className="max-w-7xl mx-auto flex gap-4 flex-wrap">
+          <div className="flex-1 min-w-[140px]">
             <label className="block text-xs font-semibold text-slate-600 mb-1">FILTER KELAS</label>
             <select
               value={filterClass}
@@ -156,11 +170,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
               ))}
             </select>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[140px]">
             <label className="block text-xs font-semibold text-slate-600 mb-1">FILTER OPERASI</label>
             <select
               value={filterOperation}
-              onChange={(e) => setFilterOperation(e.target.value)}
+              onChange={(e) => handleOperationChange(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Semua Operasi</option>
@@ -169,6 +183,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
               ))}
             </select>
           </div>
+          {showRegroupingFilter && (
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">PENGUMPULAN SEMULA</label>
+              <select
+                value={filterRegrouping}
+                onChange={(e) => setFilterRegrouping(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Semua</option>
+                <option value="yes">Dengan Pengumpulan Semula</option>
+                <option value="no">Tanpa Pengumpulan Semula</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -248,9 +276,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                               </td>
                               <td className="px-4 py-3 text-sm text-slate-600">
                                 <div className="flex flex-wrap gap-1">
-                                  {uniqueOps.map(op => (
-                                    <span key={op} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{op}</span>
-                                  ))}
+                                  {uniqueOps.map(op => {
+                                    const opScores = studentScores.filter(s => s.operation === op);
+                                    const hasRegrouping = opScores.some(s => s.includeRegrouping === true);
+                                    const hasNoRegrouping = opScores.some(s => s.includeRegrouping === false);
+                                    return (
+                                      <span key={op} className="flex items-center gap-1">
+                                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{op}</span>
+                                        {(op === 'Tambah' || op === 'Tolak') && (hasRegrouping || hasNoRegrouping) && (
+                                          <span className="text-[10px] text-slate-400">
+                                            ({hasRegrouping && hasNoRegrouping ? 'P/TP' : hasRegrouping ? 'P' : 'TP'})
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-xs text-slate-500">{formatDate(latestScore.timestamp)}</td>

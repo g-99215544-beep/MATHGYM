@@ -48,6 +48,7 @@ export interface ScoreRecord {
   kelas: string;
   tahun: number;
   operation: string;
+  includeRegrouping?: boolean; // true = dengan pengumpulan semula, false = tanpa, undefined = not applicable
   totalQuestions: number;
   correctAnswers: number;
   wrongAnswers: number;
