@@ -5,14 +5,15 @@ interface KeypadProps {
   onDelete: () => void;
   onNext: () => void;
   onClearCarry?: () => void; // Specific feature requested
+  isLandscape?: boolean;
 }
 
-const Keypad: React.FC<KeypadProps> = ({ onKeyPress, onDelete, onNext, onClearCarry }) => {
+const Keypad: React.FC<KeypadProps> = ({ onKeyPress, onDelete, onNext, onClearCarry, isLandscape = false }) => {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 
   return (
-    <div className="bg-white pb-6 pt-2 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] border-t border-gray-100 sticky bottom-0 z-50">
-      <div className="max-w-md mx-auto">
+    <div className={isLandscape ? "bg-white p-2 h-full flex items-center" : "bg-white pb-6 pt-2 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] border-t border-gray-100 sticky bottom-0 z-50"}>
+      <div className={isLandscape ? "w-full" : "max-w-md mx-auto"}>
         <div className="grid grid-cols-4 gap-2 mb-2">
             <div className="col-span-3 grid grid-cols-3 gap-2">
                 {keys.map((k) => (

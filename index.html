@@ -79,6 +79,46 @@
           min-height: -webkit-fill-available;
         }
       }
+
+      /* Landscape mode adjustments */
+      @media screen and (orientation: landscape) {
+        .quiz-container-landscape {
+          display: flex !important;
+          flex-direction: row !important;
+          height: 100vh !important;
+          height: calc(var(--vh, 1vh) * 100) !important;
+          overflow: hidden !important;
+        }
+
+        .quiz-content-landscape {
+          flex: 1 !important;
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          padding: 1rem !important;
+          padding-bottom: 1rem !important;
+          height: 100% !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+
+        .keypad-landscape {
+          width: 320px !important;
+          min-width: 320px !important;
+          position: relative !important;
+          bottom: auto !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
+          padding: 1rem !important;
+          background-color: white !important;
+          border-left: 2px solid #e2e8f0 !important;
+          overflow: hidden !important;
+        }
+
+        /* Make problem cards more compact in landscape */
+        .quiz-content-landscape .rounded-2xl {
+          max-width: 100% !important;
+        }
+      }
       /* Hide scrollbar for clean UI */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
