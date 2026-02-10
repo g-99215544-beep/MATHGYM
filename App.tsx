@@ -289,6 +289,7 @@ const QuizScreen = ({
   const [correctionProblemId, setCorrectionProblemId] = useState<string | null>(null); // For correction mode
   const [correctionValidation, setCorrectionValidation] = useState<ValidationResult | null>(null); // Correction check result
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isLandscape, setIsLandscape] = useState(window.matchMedia("(orientation: landscape)").matches);
 
   const getDivisionStartColumn = useCallback((problem: MathProblem): number => {
       if (problem.operation !== 'divide') return -1;
@@ -327,6 +328,17 @@ const QuizScreen = ({
       }
     }
   }, [difficulty, count, op, includeBorrowing, getDivisionStartColumn]);
+
+  // Listen for orientation changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(orientation: landscape)");
+    const handleOrientationChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsLandscape(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleOrientationChange);
+    return () => mediaQuery.removeEventListener('change', handleOrientationChange);
+  }, []);
 
   const checkSubtractionReady = (problem: MathProblem, colIndex: number, userAns: UserAnswerState): { ready: boolean, redirect?: ActiveCell } => {
       const col = problem.columns[colIndex];
@@ -1046,8 +1058,8 @@ const QuizScreen = ({
         if (!prob) return null;
         const correctionComplete = isProblemComplete(prob, userAnswers[correctionProblemId]);
         return (
-          <>
-            <div className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+          <div className={isLandscape ? "quiz-container-landscape flex-1" : ""}>
+            <div className={isLandscape ? "quiz-content-landscape" : "flex-1 overflow-y-auto p-4 pb-32 no-scrollbar"}>
               <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
                 <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 w-full max-w-sm text-center">
                   <p className="text-amber-800 font-bold text-sm">Pembetulan Soalan {idx + 1}</p>
@@ -1103,15 +1115,19 @@ const QuizScreen = ({
                 )}
               </div>
             </div>
-            {!correctionValidation && <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />}
-          </>
+            {!correctionValidation && (
+              <div className={isLandscape ? "keypad-landscape" : ""}>
+                <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={isLandscape} />
+              </div>
+            )}
+          </div>
         );
       })()}
 
       {/* Normal Quiz Mode - when not all checked */}
       {!allProblemsChecked && (
-        <>
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+        <div className={isLandscape ? "quiz-container-landscape flex-1" : ""}>
+          <div ref={scrollContainerRef} className={isLandscape ? "quiz-content-landscape" : "flex-1 overflow-y-auto p-4 pb-32 no-scrollbar"}>
             <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
                 {problems.map((prob, idx) => {
                     const isLocked = lockedProblems.has(prob.id);
@@ -1192,8 +1208,10 @@ const QuizScreen = ({
                 </div>
             </div>
           </div>
-          <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} />
-        </>
+          <div className={isLandscape ? "keypad-landscape" : ""}>
+            <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={isLandscape} />
+          </div>
+        </div>
       )}
     </div>
   );
