@@ -1057,9 +1057,9 @@ const QuizScreen = ({
         const idx = problems.findIndex(p => p.id === correctionProblemId);
         if (!prob) return null;
         const correctionComplete = isProblemComplete(prob, userAnswers[correctionProblemId]);
-        return (
-          <div className={isLandscape ? "quiz-container-landscape flex-1" : ""}>
-            <div className={isLandscape ? "quiz-content-landscape" : "flex-1 overflow-y-auto p-4 pb-32 no-scrollbar"}>
+        return isLandscape ? (
+          <div className="quiz-container-landscape flex-1">
+            <div className="quiz-content-landscape">
               <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
                 <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 w-full max-w-sm text-center">
                   <p className="text-amber-800 font-bold text-sm">Pembetulan Soalan {idx + 1}</p>
@@ -1116,19 +1116,80 @@ const QuizScreen = ({
               </div>
             </div>
             {!correctionValidation && (
-              <div className={isLandscape ? "keypad-landscape" : ""}>
-                <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={isLandscape} />
+              <div className="keypad-landscape">
+                <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={true} />
               </div>
             )}
           </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+              <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+                <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 w-full max-w-sm text-center">
+                  <p className="text-amber-800 font-bold text-sm">Pembetulan Soalan {idx + 1}</p>
+                  <p className="text-amber-600 text-xs">Markah tidak akan berubah</p>
+                </div>
+                <div className={`transition-all duration-300 ${
+                  correctionValidation
+                    ? correctionValidation.isCorrect
+                      ? 'ring-4 ring-green-400 rounded-3xl'
+                      : 'ring-4 ring-red-400 rounded-3xl'
+                    : correctionComplete
+                      ? 'ring-4 ring-green-400 rounded-3xl'
+                      : ''
+                }`}>
+                  <VerticalProblem
+                    problem={prob}
+                    userAnswers={userAnswers[correctionProblemId]}
+                    activeCell={activeCell}
+                    onCellClick={(col, type) => !correctionValidation && handleCellClick(correctionProblemId, col, type)}
+                    onToggleSlash={(col) => !correctionValidation && handleToggleSlash(correctionProblemId, col)}
+                    isSubmitted={!!correctionValidation}
+                    validationResult={correctionValidation || undefined}
+                    warnCol={warnCol?.probId === correctionProblemId ? warnCol.col : null}
+                    blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[correctionProblemId])}
+                  />
+                </div>
+                {/* Semak button when complete but not checked yet */}
+                {correctionComplete && !correctionValidation && (
+                  <button
+                    onClick={handleCheckCorrection}
+                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
+                  >
+                    Semak Jawapan
+                  </button>
+                )}
+                {/* Result after checking */}
+                {correctionValidation && (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className={`px-5 py-2.5 rounded-full font-bold ${
+                      correctionValidation.isCorrect
+                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                        : 'bg-red-100 text-red-800 border-2 border-red-400'
+                    }`}>
+                      {correctionValidation.isCorrect ? 'Betul' : 'Salah'}
+                    </div>
+                    <button
+                      onClick={handleExitCorrection}
+                      className="bg-slate-700 hover:bg-slate-800 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"
+                    >
+                      Kembali ke Overview
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {!correctionValidation && <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={false} />}
+          </>
         );
       })()}
 
       {/* Normal Quiz Mode - when not all checked */}
       {!allProblemsChecked && (
-        <div className={isLandscape ? "quiz-container-landscape flex-1" : ""}>
-          <div ref={scrollContainerRef} className={isLandscape ? "quiz-content-landscape" : "flex-1 overflow-y-auto p-4 pb-32 no-scrollbar"}>
-            <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+        isLandscape ? (
+          <div className="quiz-container-landscape flex-1">
+            <div ref={scrollContainerRef} className="quiz-content-landscape">
+              <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
                 {problems.map((prob, idx) => {
                     const isLocked = lockedProblems.has(prob.id);
                     const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
@@ -1206,12 +1267,98 @@ const QuizScreen = ({
                     Semak dan Hantar
                   </button>
                 </div>
+              </div>
+            </div>
+            <div className="keypad-landscape">
+              <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={true} />
             </div>
           </div>
-          <div className={isLandscape ? "keypad-landscape" : ""}>
-            <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={isLandscape} />
-          </div>
-        </div>
+        ) : (
+          <>
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 pb-32 no-scrollbar">
+              <div className="w-full max-w-full mx-auto flex flex-col items-center gap-3">
+                {problems.map((prob, idx) => {
+                    const isLocked = lockedProblems.has(prob.id);
+                    const isComplete = isProblemComplete(prob, userAnswers[prob.id]);
+                    const validation = validationResults[prob.id];
+                    const hasNext = idx < problems.length - 1;
+
+                    return (
+                    <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
+                        {/* Problem Card Wrapper with Border - green when complete, green/red when locked based on result */}
+                        <div className={`transition-all duration-300 ${
+                            isLocked
+                              ? validation?.isCorrect
+                                ? 'ring-4 ring-green-400 rounded-3xl'
+                                : 'ring-4 ring-red-400 rounded-3xl'
+                              : isComplete
+                                ? 'ring-4 ring-green-400 rounded-3xl'
+                                : ''
+                        }`}>
+                            <VerticalProblem
+                                problem={prob}
+                                userAnswers={userAnswers[prob.id]}
+                                activeCell={activeCell}
+                                onCellClick={(col, type) => handleCellClick(prob.id, col, type)}
+                                onToggleSlash={(col) => handleToggleSlash(prob.id, col)}
+                                isSubmitted={isLocked}
+                                validationResult={validation}
+                                warnCol={warnCol?.probId === prob.id ? warnCol.col : null}
+                                blockedAnswerColumns={getBlockedAnswerColumns(prob, userAnswers[prob.id])}
+                            />
+                        </div>
+
+                        {/* Check/Next/Result Buttons */}
+                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                            {/* Show "Semak Jawapan" when complete but not locked */}
+                            {!isLocked && isComplete && (
+                                <button
+                                    onClick={() => handleCheckOne(prob.id)}
+                                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg animate-bounce"
+                                >
+                                    Semak Jawapan
+                                </button>
+                            )}
+
+                            {/* Show "Seterusnya" when locked and has next, OR when complete but not locked and has next */}
+                            {((isLocked && hasNext) || (!isLocked && isComplete && hasNext)) && (
+                                <button
+                                    onClick={() => handleMoveToNext(prob.id)}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg"
+                                >
+                                    Seterusnya
+                                </button>
+                            )}
+
+                            {/* Show result badge when locked */}
+                            {isLocked && (
+                                <div className={`px-5 py-2.5 rounded-full font-bold ${
+                                    validation?.isCorrect
+                                        ? 'bg-green-100 text-green-800 border-2 border-green-400'
+                                        : 'bg-red-100 text-red-800 border-2 border-red-400'
+                                }`}>
+                                    {validation?.isCorrect ? 'Betul' : 'Salah'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    );
+                })}
+
+                {/* Semak dan Hantar button - always at the end of questions */}
+                <div className="mt-8 mb-4 w-full flex justify-center">
+                  <button
+                    onClick={handleSubmitAll}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95"
+                  >
+                    Semak dan Hantar
+                  </button>
+                </div>
+              </div>
+            </div>
+            <Keypad onKeyPress={handleKeyPress} onDelete={handleDelete} onNext={handleNext} isLandscape={false} />
+          </>
+        )
       )}
     </div>
   );
