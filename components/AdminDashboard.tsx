@@ -14,6 +14,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   const [filterOperation, setFilterOperation] = useState<string>('');
   const [filterRegrouping, setFilterRegrouping] = useState<string>(''); // '' | 'yes' | 'no'
   const [selectedStudent, setSelectedStudent] = useState<{ name: string; class: string } | null>(null);
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const toggleClassExpansion = (kelas: string) => {
+    setExpandedClasses(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(kelas)) {
+        newSet.delete(kelas);
+      } else {
+        newSet.add(kelas);
+      }
+      return newSet;
+    });
+  };
 
   const fetchScores = async () => {
     setLoading(true);
@@ -47,6 +61,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
       if (filterRegrouping === 'yes' && score.includeRegrouping !== true) return false;
       if (filterRegrouping === 'no' && score.includeRegrouping !== false) return false;
     }
+    if (searchQuery && !score.studentName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
@@ -197,6 +212,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
               </select>
             </div>
           )}
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">CARI MURID</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Taipkan nama murid..."
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -217,12 +242,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
               const studentNames = Object.keys(studentsInClass).sort();
               const totalRecords = studentNames.reduce((sum, name) => sum + studentsInClass[name].scores.length, 0);
 
+              const isExpanded = expandedClasses.has(kelas);
+
               return (
                 <div key={kelas} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-                  <div className="bg-slate-100 px-6 py-3 border-b border-slate-200">
-                    <h2 className="text-xl font-bold text-slate-800">Kelas {kelas}</h2>
-                    <p className="text-sm text-slate-600">{studentNames.length} murid | {totalRecords} rekod</p>
+                  <div
+                    className="bg-slate-100 px-6 py-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors flex items-center justify-between"
+                    onClick={() => toggleClassExpansion(kelas)}
+                  >
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Kelas {kelas}</h2>
+                      <p className="text-sm text-slate-600">{studentNames.length} murid | {totalRecords} rekod</p>
+                    </div>
+                    <svg
+                      className={`w-6 h-6 text-slate-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
+                  {isExpanded && (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-slate-50 border-b border-slate-200">
@@ -300,6 +341,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                       </tbody>
                     </table>
                   </div>
+                  )}
                 </div>
               );
             })}
