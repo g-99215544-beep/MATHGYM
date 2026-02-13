@@ -56,6 +56,14 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
     );
   };
 
+  const deselectAllStudents = () => {
+    setSelectedStudentIds([]);
+  };
+
+  const selectAllStudents = () => {
+    setSelectedStudentIds(studentsInClass.map(s => s.id));
+  };
+
   const handleCreateAssignment = async () => {
     if (!title.trim() || !selectedClass || selectedStudentIds.length === 0) {
       alert('Sila isi semua maklumat yang diperlukan');
@@ -329,9 +337,27 @@ const AdminAssignment: React.FC<AdminAssignmentProps> = ({ onBack }) => {
               {/* Student Selection */}
               {selectedClass && (
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    PILIH MURID <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-bold text-slate-700">
+                      PILIH MURID <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={selectAllStudents}
+                        className="text-xs px-3 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md font-semibold transition-colors"
+                      >
+                        Tanda Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={deselectAllStudents}
+                        className="text-xs px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold transition-colors"
+                      >
+                        Nyahtanda Semua
+                      </button>
+                    </div>
+                  </div>
                   <div className="text-xs text-slate-500 mb-3">
                     Semua murid dipilih secara automatik. Untick murid yang tidak perlu jawab.
                   </div>
