@@ -8,6 +8,7 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import AdminAssignment from './components/AdminAssignment';
 import AssignmentSelectionModal from './components/AssignmentSelectionModal';
+import FullscreenButton from './components/FullscreenButton';
 import { loadStudents, getClasses, getStudentsByClass, Student, saveScore, getPendingAssignments, completeAssignment } from './services/firebase';
 
 // Sound effects utility
@@ -1534,6 +1535,7 @@ const App = () => {
       {screen === 'adminLogin' && <AdminLogin onLogin={onAdminLogin} onBack={backToHome} />}
       {screen === 'adminDashboard' && <AdminDashboard onLogout={onAdminLogout} onManageAssignments={goToAdminAssignment} />}
       {screen === 'adminAssignment' && <AdminAssignment onBack={backToAdminDashboard} />}
+      <FullscreenButton />
     </>
   );
 };

@@ -16,6 +16,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   const [selectedStudent, setSelectedStudent] = useState<{ name: string; class: string } | null>(null);
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const toggleClassExpansion = (kelas: string) => {
     setExpandedClasses(prev => {
@@ -38,6 +40,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
 
   useEffect(() => {
     fetchScores();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setShowMobileActions(false);
+        setShowMobileFilters(false);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Get unique classes and operations for filters
@@ -105,38 +120,74 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-slate-800 text-white p-4 shadow-lg z-10 flex-shrink-0">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <h1 className="text-xl font-bold">Admin Dashboard</h1>
-              <p className="text-slate-300 text-xs">MathGym - Laporan Prestasi Murid</p>
+      <div className="bg-slate-800 text-white px-3 py-2.5 sm:px-4 sm:py-3 shadow-lg z-10 flex-shrink-0">
+        <div className="max-w-7xl mx-auto space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold leading-tight">Admin Dashboard</h1>
+              <p className="text-slate-300 text-[11px] sm:text-xs">MathGym - Laporan Prestasi Murid</p>
+            </div>
+            <div className="hidden lg:flex items-center gap-2">
+              <button
+                onClick={fetchScores}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-3 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+              <button
+                onClick={onManageAssignments}
+                className="bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-lg font-bold transition-all text-sm"
+              >
+                Urus Assignment
+              </button>
+              <button
+                onClick={onLogout}
+                className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-bold transition-all text-sm"
+              >
+                Logout
+              </button>
             </div>
             <button
-              onClick={onLogout}
-              className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-bold transition-all text-sm"
+              type="button"
+              onClick={() => setShowMobileActions(prev => !prev)}
+              className="lg:hidden flex items-center gap-2 rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-600"
             >
-              Logout
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={fetchScores}
-              disabled={loading}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-3 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-2 text-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              Refresh
-            </button>
-            <button
-              onClick={onManageAssignments}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-lg font-bold transition-all text-sm"
-            >
-              Urus Assignment
+              Tindakan
             </button>
           </div>
+          {showMobileActions && (
+            <div className="lg:hidden grid grid-cols-3 gap-2">
+              <button
+                onClick={fetchScores}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-2 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1 text-xs"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+              <button
+                onClick={onManageAssignments}
+                className="bg-indigo-600 hover:bg-indigo-700 px-2 py-2 rounded-lg font-bold transition-all text-xs"
+              >
+                Assignment
+              </button>
+              <button
+                onClick={onLogout}
+                className="bg-red-500 hover:bg-red-600 px-2 py-2 rounded-lg font-bold transition-all text-xs"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -144,89 +195,104 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
       <div className="flex-1 overflow-y-auto">
 
       {/* Stats Summary */}
-      <div className="bg-white border-b border-slate-200 p-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="text-blue-600 text-sm font-semibold mb-1">Jumlah Rekod</div>
-            <div className="text-3xl font-bold text-blue-900">{filteredScores.length}</div>
+      <div className="bg-white border-b border-slate-200 px-3 py-3 sm:px-4 sm:py-4">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <div className="text-blue-600 text-[11px] sm:text-sm font-semibold mb-1">Jumlah Rekod</div>
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-900">{filteredScores.length}</div>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="text-green-600 text-sm font-semibold mb-1">Lulus (&gt;50%)</div>
-            <div className="text-3xl font-bold text-green-900">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+            <div className="text-green-600 text-[11px] sm:text-sm font-semibold mb-1">Lulus (&gt;50%)</div>
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-900">
               {filteredScores.filter(s => s.percentage > 50).length}
             </div>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="text-red-600 text-sm font-semibold mb-1">Gagal (&le;50%)</div>
-            <div className="text-3xl font-bold text-red-900">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+            <div className="text-red-600 text-[11px] sm:text-sm font-semibold mb-1">Gagal (&le;50%)</div>
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-red-900">
               {filteredScores.filter(s => s.percentage <= 50).length}
             </div>
           </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="text-purple-600 text-sm font-semibold mb-1">Jumlah Murid</div>
-            <div className="text-3xl font-bold text-purple-900">{totalStudents}</div>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4">
+            <div className="text-purple-600 text-[11px] sm:text-sm font-semibold mb-1">Jumlah Murid</div>
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-900">{totalStudents}</div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white border-b border-slate-200 p-4">
-        <div className="max-w-7xl mx-auto flex gap-4 flex-wrap">
-          <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">FILTER KELAS</label>
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="bg-white border-b border-slate-200 px-3 py-3 sm:px-4 sm:py-4">
+        <div className="max-w-7xl mx-auto space-y-3">
+          <div className="lg:hidden flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-700">Tapis & cari</div>
+              <div className="text-xs text-slate-500">Buka bila perlu untuk beri lebih ruang pada senarai murid.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(prev => !prev)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              <option value="">Semua Kelas</option>
-              {classes.map(cls => (
-                <option key={cls} value={cls}>{cls}</option>
-              ))}
-            </select>
+              {showMobileFilters ? 'Sorok' : 'Buka'}
+            </button>
           </div>
-          <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">FILTER OPERASI</label>
-            <select
-              value={filterOperation}
-              onChange={(e) => handleOperationChange(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Operasi</option>
-              {operations.map(op => (
-                <option key={op} value={op}>{op}</option>
-              ))}
-            </select>
-          </div>
-          {showRegroupingFilter && (
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">PENGUMPULAN SEMULA</label>
+          <div className={`${showMobileFilters ? 'flex' : 'hidden'} lg:flex gap-3 flex-wrap`}>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-[11px] sm:text-xs font-semibold text-slate-600 mb-1">FILTER KELAS</label>
               <select
-                value={filterRegrouping}
-                onChange={(e) => setFilterRegrouping(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Semua</option>
-                <option value="yes">Dengan Pengumpulan Semula</option>
-                <option value="no">Tanpa Pengumpulan Semula</option>
+                <option value="">Semua Kelas</option>
+                {classes.map(cls => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
               </select>
             </div>
-          )}
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">CARI MURID</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Taipkan nama murid..."
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-[11px] sm:text-xs font-semibold text-slate-600 mb-1">FILTER OPERASI</label>
+              <select
+                value={filterOperation}
+                onChange={(e) => handleOperationChange(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Semua Operasi</option>
+                {operations.map(op => (
+                  <option key={op} value={op}>{op}</option>
+                ))}
+              </select>
+            </div>
+            {showRegroupingFilter && (
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-[11px] sm:text-xs font-semibold text-slate-600 mb-1">PENGUMPULAN SEMULA</label>
+                <select
+                  value={filterRegrouping}
+                  onChange={(e) => setFilterRegrouping(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Semua</option>
+                  <option value="yes">Dengan Pengumpulan Semula</option>
+                  <option value="no">Tanpa Pengumpulan Semula</option>
+                </select>
+              </div>
+            )}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-[11px] sm:text-xs font-semibold text-slate-600 mb-1">CARI MURID</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Taipkan nama murid..."
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto w-full p-3 sm:p-4 lg:p-6">
         {loading ? (
           <div className="text-center py-12">
             <div className="text-slate-500 text-lg">Memuatkan data...</div>
@@ -236,7 +302,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
             <div className="text-slate-400 text-lg">Tiada rekod dijumpai</div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3 sm:space-y-4 lg:space-y-6">
             {Object.keys(studentsByClass).sort().map(kelas => {
               const studentsInClass = studentsByClass[kelas];
               const studentNames = Object.keys(studentsInClass).sort();
@@ -247,15 +313,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
               return (
                 <div key={kelas} className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                   <div
-                    className="bg-slate-100 px-6 py-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors flex items-center justify-between"
+                    className="bg-slate-100 px-4 py-2.5 sm:px-6 sm:py-3 border-b border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors flex items-center justify-between"
                     onClick={() => toggleClassExpansion(kelas)}
                   >
                     <div>
-                      <h2 className="text-xl font-bold text-slate-800">Kelas {kelas}</h2>
-                      <p className="text-sm text-slate-600">{studentNames.length} murid | {totalRecords} rekod</p>
+                      <h2 className="text-base sm:text-xl font-bold text-slate-800">Kelas {kelas}</h2>
+                      <p className="text-xs sm:text-sm text-slate-600">{studentNames.length} murid | {totalRecords} rekod</p>
                     </div>
                     <svg
-                      className={`w-6 h-6 text-slate-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      className={`w-5 h-5 sm:w-6 sm:h-6 text-slate-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -268,12 +334,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                     <table className="w-full">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Nama Murid</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Cubaan</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Purata</th>
-                          <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase">Terbaik</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Operasi Terkini</th>
-                          <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase">Tarikh Terkini</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Nama Murid</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-center text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Cubaan</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-center text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Purata</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-center text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Terbaik</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Operasi Terkini</th>
+                          <th className="px-2 py-2 sm:px-4 sm:py-3 text-left text-[11px] sm:text-xs font-bold text-slate-600 uppercase">Tarikh Terkini</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -291,14 +357,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                               className="hover:bg-blue-50 cursor-pointer transition-colors"
                               onClick={() => setSelectedStudent({ name: studentName, class: kelas })}
                             >
-                              <td className="px-4 py-3 text-sm font-medium">
-                                <span className="text-blue-600 hover:text-blue-800 font-semibold">
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium">
+                                <span className="text-blue-600 hover:text-blue-800 font-semibold leading-snug">
                                   {studentName}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-sm text-center text-slate-600">{studentScores.length}</td>
-                              <td className="px-4 py-3 text-center">
-                                <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm text-center text-slate-600">{studentScores.length}</td>
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-center">
+                                <div className={`inline-flex items-center justify-center px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm font-bold ${
                                   avgPercentage > 50
                                     ? 'bg-green-100 text-green-800 border border-green-300'
                                     : 'bg-red-100 text-red-800 border border-red-300'
@@ -306,8 +372,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                                   {avgPercentage}%
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-center">
+                                <div className={`inline-flex items-center justify-center px-2 py-1 sm:px-3 rounded-full text-xs sm:text-sm font-bold ${
                                   bestPercentage > 50
                                     ? 'bg-green-100 text-green-800 border border-green-300'
                                     : 'bg-red-100 text-red-800 border border-red-300'
@@ -315,7 +381,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                                   {bestPercentage}%
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-sm text-slate-600">
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm text-slate-600">
                                 <div className="flex flex-wrap gap-1">
                                   {uniqueOps.map(op => {
                                     const opScores = studentScores.filter(s => s.operation === op);
@@ -323,7 +389,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                                     const hasNoRegrouping = opScores.some(s => s.includeRegrouping === false);
                                     return (
                                       <span key={op} className="flex items-center gap-1">
-                                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">{op}</span>
+                                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] sm:text-xs font-medium">{op}</span>
                                         {(op === 'Tambah' || op === 'Tolak') && (hasRegrouping || hasNoRegrouping) && (
                                           <span className="text-[10px] text-slate-400">
                                             ({hasRegrouping && hasNoRegrouping ? 'P/TP' : hasRegrouping ? 'P' : 'TP'})
@@ -334,7 +400,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout, onManageAssig
                                   })}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-xs text-slate-500">{formatDate(latestScore.timestamp)}</td>
+                              <td className="px-2 py-2 sm:px-4 sm:py-3 text-[11px] sm:text-xs text-slate-500 whitespace-nowrap">{formatDate(latestScore.timestamp)}</td>
                             </tr>
                           );
                         })}
