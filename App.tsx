@@ -1198,7 +1198,7 @@ const QuizScreen = ({
                     const hasNext = idx < problems.length - 1;
 
                     return (
-                    <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-col items-center">
+                    <div key={prob.id} id={`prob-${prob.id}`} className="w-full flex flex-row items-center justify-center gap-4">
                         {/* Problem Card Wrapper with Border - green when complete, green/red when locked based on result */}
                         <div className={`transition-all duration-300 ${
                             isLocked
@@ -1222,8 +1222,8 @@ const QuizScreen = ({
                             />
                         </div>
 
-                        {/* Check/Next/Result Buttons */}
-                        <div className="mt-3 flex gap-3 flex-wrap justify-center">
+                        {/* Check/Next/Result Buttons - to the right of the green border in landscape */}
+                        <div className="flex flex-col gap-3 items-center justify-center min-w-[140px]">
                             {/* Show "Semak Jawapan" when complete but not locked */}
                             {!isLocked && isComplete && (
                                 <button
